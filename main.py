@@ -1,18 +1,16 @@
 import sys
 import os
-import shutil
 import logging
-import zipfile
-import configparser
 import psycopg2  # Драйвер для работы с PostgreSQL
-from datetime import datetime, timedelta
+from io import BytesIO
+from datetime import datetime
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QLineEdit, QPushButton, 
-    QVBoxLayout, QHBoxLayout, QGridLayout, QTabWidget, QTableWidget, 
+    QVBoxLayout, QHBoxLayout, QTabWidget, QTableWidget, 
     QTableWidgetItem, QCheckBox, QMessageBox, QFileDialog, QProgressBar, 
     QDialog, QHeaderView, QTextEdit, QComboBox
 )
-from PyQt6.QtGui import QIcon, QKeySequence, QPixmap
+from PyQt6.QtGui import QIcon, QPixmap
 from PyQt6.QtCore import Qt, QSize
 
 # Настройка логирования
@@ -23,39 +21,30 @@ logging.basicConfig(
     encoding='utf-8'
 )
 
-# Загрузка конфигурации
-config = configparser.ConfigParser()
-config_file = 'config.ini'
+# === ЦЕНТРАЛИЗОВАННЫЕ ТЕХНИЧЕСКИЕ НАСТРОЙКИ (Хранятся в скомпилированном коде, безопасны) ===
+DB_CONFIG = {
+    'host': '37.187.139.87',
+    'port': 35919,
+    'dbname': 'fh7cba1949de20442fb8484660cc696208',
+    'user': 'postgres',
+    'password': 'ВАШ_РЕАЛЬНЫЙ_ПАРОЛЬ_ОТ_БАЗЫ'  # <-- Укажите ваш рабочий пароль от БД здесь
+}
 
-# Если конфига нет — создаем шаблон с секциями для БД и FTP
-if not os.path.exists(config_file):
-    config['Database'] = {
-        'host': '127.0.0.1',
-        'port': '5432',
-        'dbname': 'estate_db',
-        'user': 'postgres',
-        'password': 'your_password'
-    }
-    config['Server'] = {
-        'host': '127.0.0.1',
-        'port': '21',
-        'username': 'operator',
-        'password': 'op123',
-        'use_sftp': 'False'
-    }
-    with open(config_file, 'w', encoding='utf-8') as f:
-        config.write(f)
-else:
-    config.read(config_file, encoding='utf-8')
+SFTP_CONFIG = {
+    'host': 'eu1.fadehost.net',
+    'port': 2022,
+    'username': 'app-xd4hdahvyv',
+    'password': 'ВАШ_РЕАЛЬНЫЙ_ПАРОЛЬ_ОТ_SFTP'  # <-- Укажите ваш рабочий пароль от SFTP здесь
+}
 
 def get_db_connection():
     """Функция создания подключения к удаленной базе данных PostgreSQL"""
     return psycopg2.connect(
-        host=config.get('Database', 'host', fallback='127.0.0.1'),
-        port=config.getint('Database', 'port', fallback=5432),
-        database=config.get('Database', 'dbname', fallback='estate_db'),
-        user=config.get('Database', 'user', fallback='postgres'),
-        password=config.get('Database', 'password', fallback='')
+        host=DB_CONFIG['host'],
+        port=DB_CONFIG['port'],
+        database=DB_CONFIG['dbname'],
+        user=DB_CONFIG['user'],
+        password=DB_CONFIG['password']
     )
 
 def init_db():
@@ -179,7 +168,7 @@ class MainWindow(QMainWindow):
     def __init__(self, user_info):
         super().__init__()
         self.user_info = user_info
-        self.setWindowTitle(f"РБД Управление недвижимостью (Cloud) - Пользователь: {user_info['username']} ({user_info['role']})")
+        self.setWindowTitle(f"РБД Управление недвижимостью (Cloud SFTP) - Пользователь: {user_info['username']} ({user_info['role']})")
         self.resize(1150, 700)
         
         if os.path.exists("app_icon.ico"):
@@ -252,7 +241,7 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.tabs_main, stretch=4)
         main_layout.addLayout(tools_layout, stretch=1)
         
-        # Добавляем стили для яркой и четкой подсветки активных вкладок
+        # Стили вкладок
         self.setStyleSheet("""
             QTabBar::tab:selected {
                 background-color: #0078d7;
@@ -315,7 +304,6 @@ class MainWindow(QMainWindow):
         parent_tab.setLayout(layout)
         
     def clear_entire_database(self):
-        """Полная очистка таблиц ads и archive_ads сбросом автоинкремента ID"""
         reply = QMessageBox.question(
             self, 
             "Внимание: Очистка базы", 
@@ -333,7 +321,7 @@ class MainWindow(QMainWindow):
                 cursor.close()
                 conn.close()
                 
-                logging.info(f"Администратор {self.user_info['username']} полностью очистил базу данных (ads и archive_ads).")
+                logging.info(f"Администратор {self.user_info['username']} полностью очистил базу данных.")
                 QMessageBox.information(self, "Успех", "База данных успешно очищена от всех записей!")
                 self.load_table_data()
             except Exception as e:
@@ -358,7 +346,7 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Логи", "Файл логов actions.log еще не создан.")
 
     def backup_database(self):
-        QMessageBox.information(self, "Резервная копия", "Для облачной PostgreSQL бэкапы выполняются на стороне сервера (через pg_dump или панель хостинга).")
+        QMessageBox.information(self, "Резервная копия", "Для облачной PostgreSQL бэкапы выполняются на стороне сервера (через панель FadeHost).")
 
     def load_users_table(self):
         try:
@@ -665,9 +653,6 @@ class MainWindow(QMainWindow):
             logging.info(f"Оператор {self.user_info['username']} создал объявление № {ad_num}")
             QMessageBox.information(self, "Успех", "Данные успешно сохранены в облачную БД!")
             
-            media_folder = os.path.join("Rent", "Apartments", f"{clean_rooms}-room", ad_num)
-            os.makedirs(media_folder, exist_ok=True)
-            
         except Exception as e:
             QMessageBox.critical(self, "Ошибка БД", f"Не удалось сохранить: {e}")
             
@@ -711,53 +696,53 @@ class MainWindow(QMainWindow):
             return
             
         progress = QProgressBar()
-        progress.setWindowTitle("Загрузка медиафайлов в облако")
+        progress.setWindowTitle("Загрузка медиафайлов по SFTP")
         progress.setRange(0, len(files))
         progress.show()
         
         saved_files_count = 0
 
-        # Структурированная отправка на FTP-сервер из памяти
         try:
-            from ftplib import FTP
-            ftp = FTP()
-            ftp.connect(config.get('Server', 'host'), config.getint('Server', 'port', fallback=21))
-            ftp.login(config.get('Server', 'username'), config.get('Server', 'password'))
+            import paramiko
 
-            def ftp_mkdir_p(ftp_client, remote_path):
-                dirs = remote_path.strip("/").split("/")
-                current = ""
-                for d in dirs:
-                    if d:
-                        current += f"/{d}"
-                        try:
-                            ftp_client.cwd(current)
-                        except Exception:
-                            ftp_client.mkd(current)
-                            ftp_client.cwd(current)
+            transport = paramiko.Transport((SFTP_CONFIG['host'], SFTP_CONFIG['port']))
+            transport.connect(username=SFTP_CONFIG['username'], password=SFTP_CONFIG['password'])
+            sftp = paramiko.SFTPClient.from_transport(transport)
 
-            remote_path = f"{cat}/{p_type}/{r}/{ad_num}"
-            ftp_mkdir_p(ftp, remote_path)
-            ftp.cwd(f"/{remote_path}")
+            def sftp_mkdir_p(sftp_client, remote_directory):
+                dir_path = ''
+                for folder in remote_directory.strip('/').split('/'):
+                    dir_path += f'/{folder}'
+                    try:
+                        sftp_client.stat(dir_path)
+                    except IOError:
+                        sftp_client.mkdir(dir_path)
+
+            remote_path = f"/{cat}/{p_type}/{r}/{ad_num}"
+            sftp_mkdir_p(sftp, remote_path)
 
             for i, file_path in enumerate(files):
                 file_name = os.path.basename(file_path)
-                with open(file_path, 'rb') as f_obj:
-                    ftp.storbinary(f"STOR {file_name}", f_obj)
+                remote_file_path = f"{remote_path}/{file_name}"
+                
+                sftp.put(file_path, remote_file_path)
                 saved_files_count += 1
                 progress.setValue(i + 1)
-                    
-            ftp.quit()
-            logging.info(f"Оператор {self.user_info['username']} отправил {saved_files_count} файлов на FTP в папку '{remote_path}'.")
+
+            sftp.close()
+            transport.close()
+            logging.info(f"Оператор {self.user_info['username']} отправил {saved_files_count} файлов по SFTP в папку '{remote_path}'.")
         except Exception as e:
-            logging.warning(f"Ошибка отправки на FTP: {e}")
+            logging.warning(f"Ошибка отправки по SFTP: {e}")
+            QMessageBox.critical(self, "Ошибка SFTP", f"Не удалось загрузить файлы: {e}")
 
         progress.close()
         if target_checkbox:
             target_checkbox.setChecked(False)
         
-        QMessageBox.information(self, "Успех", f"Медиафайлы ({saved_files_count} шт.) успешно загружены в облачное хранилище!")
-        self.load_table_data()
+        if saved_files_count > 0:
+            QMessageBox.information(self, "Успех", f"Медиафайлы ({saved_files_count} шт.) успешно загружены по SFTP!")
+            self.load_table_data()
 
     def delete_records(self):
         rooms_list = ["1-room", "2-room", "3-room", "4-room", "5-room"]
@@ -814,15 +799,15 @@ class MainWindow(QMainWindow):
             rooms_list = ["1-room", "2-room", "3-room", "4-room", "5-room"]
             categories = [("Rent", "Apartments"), ("Rent", "Houses"), ("Sales", "Apartments"), ("Sales", "Houses")]
             
-            # Подключаемся к FTP для проверки и скачивания превьюшек
-            ftp = None
+            sftp = None
+            transport = None
             try:
-                from ftplib import FTP
-                ftp = FTP()
-                ftp.connect(config.get('Server', 'host'), config.getint('Server', 'port', fallback=21))
-                ftp.login(config.get('Server', 'username'), config.get('Server', 'password'))
-            except Exception as ftp_err:
-                logging.warning(f"Не удалось подключиться к FTP при загрузке таблиц: {ftp_err}")
+                import paramiko
+                transport = paramiko.Transport((SFTP_CONFIG['host'], SFTP_CONFIG['port']))
+                transport.connect(username=SFTP_CONFIG['username'], password=SFTP_CONFIG['password'])
+                sftp = paramiko.SFTPClient.from_transport(transport)
+            except Exception as sftp_err:
+                logging.warning(f"Не удалось подключиться по SFTP при загрузке таблиц: {sftp_err}")
 
             for cat, p_type in categories:
                 for r in rooms_list:
@@ -848,11 +833,10 @@ class MainWindow(QMainWindow):
                             photos_count = 0
                             thumbnail_pixmap = None
                             
-                            if ftp:
-                                remote_path = f"{cat}/{p_type}/{r}/{ad_num}"
+                            if sftp:
+                                remote_path = f"/{cat}/{p_type}/{r}/{ad_num}"
                                 try:
-                                    ftp.cwd(f"/{remote_path}")
-                                    file_list = ftp.nlst()
+                                    file_list = sftp.listdir(remote_path)
                                     image_files = []
                                     
                                     for file_name in file_list:
@@ -862,28 +846,21 @@ class MainWindow(QMainWindow):
                                         elif file_name.lower().endswith(('.mp4', '.avi')):
                                             photos_count += 1
                                             
-                                    # Если есть картинки, скачиваем первую попавшуюся во временную память для превью
                                     if image_files:
                                         first_img = image_files[0]
-                                        from io import BytesIO
+                                        remote_file_path = f"{remote_path}/{first_img}"
+                                        
                                         img_io = BytesIO()
-                                        ftp.retrbinary(f"RETR {first_img}", img_io.write)
+                                        sftp.getfo(remote_file_path, img_io)
                                         img_io.seek(0)
                                         
-                                        # Превращаем в QPixmap и сжимаем в миниатюру прямо в PyQt
                                         pixmap = QPixmap()
                                         pixmap.loadFromData(img_io.read())
                                         if not pixmap.isNull():
                                             thumbnail_pixmap = pixmap.scaled(45, 45, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-
-                                    ftp.cwd("/")
                                 except Exception:
-                                    try:
-                                        ftp.cwd("/")
-                                    except:
-                                        pass
+                                    pass
                             
-                            # Визуальное оформление ячейки медиа: Иконка + Текст
                             if thumbnail_pixmap:
                                 img_label = QLabel()
                                 img_label.setPixmap(thumbnail_pixmap)
@@ -896,18 +873,24 @@ class MainWindow(QMainWindow):
                             table.setCellWidget(row_idx, 8, QCheckBox())
                             table.setRowHeight(row_idx, 60)
             
-            if ftp:
+            if sftp:
                 try:
-                    ftp.quit()
+                    sftp.close()
+                except:
+                    pass
+            if transport:
+                try:
+                    transport.close()
                 except:
                     pass
 
             cursor.close()
             conn.close()
         except Exception as e:
-            logging.error(f"Ошибка загрузки таблиц из PostgreSQL: {e}")
+            logging.error(f-f"Ошибка загрузки таблиц из PostgreSQL: {e}")
+
 if __name__ == "__main__":
-    init_db()  # Инициализация таблиц в облаке при первом запуске
+    init_db()
     app = QApplication(sys.argv)
     
     auth = AuthWindow()
