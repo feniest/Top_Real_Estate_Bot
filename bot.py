@@ -74,7 +74,8 @@ async def get_ads(category: str = "Rent", prop_type: str = "all"):
             "area": ad[6],
             "floor": ad[7],
             "floors_total": ad[8],
-            "price": ad[9]
+            "price": ad[9],
+            "photo_url": ad[10] if len(ad) > 10 else None  # Ссылка на фото (индекс зависит от структуры БД)
         })
     return result
 
