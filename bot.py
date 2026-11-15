@@ -4,7 +4,7 @@ import asyncio
 import psycopg2
 from aiogram import Bot, Dispatcher, Router, types
 from aiogram.filters import CommandStart
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo, BotCommand, MenuButtonWebApp
+from aiogram.types import WebAppInfo, BotCommand, MenuButtonWebApp
 import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, Response
@@ -40,15 +40,6 @@ def get_pg_connection():
 
 @router.message(CommandStart())
 async def cmd_start(message: types.Message):
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(
-                text="🚀 Открыть каталог недвижимости",
-                web_app=WebAppInfo(url=WEB_APP_URL)
-            )
-        ]
-    ])
-    
     welcome_text = (
         "<b>🏢 Добро пожаловать в РБД Управление недвижимостью!</b>\n\n"
         "🤖 Я — ваш цифровой помощник по подбору объектов недвижимости. "
@@ -58,12 +49,12 @@ async def cmd_start(message: types.Message):
         "• 📸 Просматривать фотографии и видеофайлы в высоком качестве;\n"
         "• 📍 Быстро находить нужный район и ориентир;\n"
         "• 📞 Связываться с риелтором в один клик.\n\n"
-        "👇 Нажмите кнопку ниже, чтобы открыть полноэкранный каталог:"
+        "👇 <i>Для открытия каталога нажмите кнопку <b>«Каталог»</b> внизу экрана.</i>"
     )
     
+    # Отправляем сообщение без инлайн-кнопки
     await message.answer(
         text=welcome_text,
-        reply_markup=kb,
         parse_mode="HTML"
     )
 
@@ -166,7 +157,7 @@ async def main():
     port = int(os.getenv("PORT", 8080))
     logging.info("🤖 Запуск Telegram-бота и FastAPI сервера...")
 
-    # Установка команды меню и кнопки WebApp
+    # Установка команды меню и постоянной кнопки WebApp внизу интерфейса
     await bot.set_my_commands([BotCommand(command="start", description="Запустить каталог недвижимости")])
     try:
         await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(text="🏠 Каталог", web_app=WebAppInfo(url=WEB_APP_URL)))
