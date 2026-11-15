@@ -109,13 +109,13 @@
             flex-direction: column;
             height: calc(100vh - 24px);
             box-sizing: border-box;
-            overflow: hidden; /* Общий экран не скроллится целиком */
+            overflow: hidden;
         }
         #detailScreen.active {
             display: flex;
         }
 
-        /* Абсолютно закрепленная шапка */
+        /* Абсолютно закрепленная шапка на одной строке */
         .detail-header-fixed {
             position: sticky;
             top: 0;
@@ -150,7 +150,7 @@
         /* Абсолютно закрепленный просмотрщик медиафайлов */
         .media-container {
             position: sticky;
-            top: 48px; /* Сразу под шапкой */
+            top: 48px;
             z-index: 90;
             width: 100%;
             height: 320px;
@@ -206,7 +206,7 @@
         /* Перемещаемая (скроллящаяся) область характеристик */
         .scrollable-content {
             flex-grow: 1;
-            overflow-y: auto; /* Скроллится только эта часть */
+            overflow-y: auto;
             display: flex;
             flex-direction: column;
             gap: 12px;
@@ -280,7 +280,7 @@
 
     <!-- Встроенный экран с деталями объекта -->
     <div id="detailScreen">
-        <!-- Закрепленная шапка (Назад + Заголовок) -->
+        <!-- Шапка (Назад + Название на одной строке) -->
         <div class="detail-header-fixed">
             <div class="detail-header-row">
                 <button class="back-btn" onclick="closeDetailScreen()">← Назад</button>
@@ -293,7 +293,7 @@
             <span class="no-photo">⏳ Загрузка медиа...</span>
         </div>
 
-        <!-- Перемещаемая (скроллящаяся) карточка с характеристиками и кнопкой связи -->
+        <!-- Скроллящаяся карточка с характеристиками и кнопкой связи -->
         <div class="scrollable-content">
             <div class="info-card" id="detailBody"></div>
             <button class="action-btn" onclick="contactAgent()">Связаться с риелтором</button>
