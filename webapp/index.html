@@ -112,24 +112,33 @@
         #detailScreen.active {
             display: flex;
         }
+
+        /* Строка шапки детального экрана (Назад + Название на одной строке) */
+        .detail-header-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 4px;
+        }
         .back-btn {
             background: var(--card-bg);
             border: 1px solid #d1d1d6;
             color: var(--text-color);
-            padding: 10px 16px;
+            padding: 8px 12px;
             border-radius: 12px;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            width: fit-content;
+            white-space: nowrap;
         }
         .detail-title {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: bold;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
+
         .media-container {
             position: relative;
             width: 100%;
@@ -239,8 +248,11 @@
 
     <!-- Встроенный экран с подробной информацией об объекте -->
     <div id="detailScreen">
-        <button class="back-btn" onclick="closeDetailScreen()">← Назад к каталогу</button>
-        <div id="detailTitle" class="detail-title">Объект</div>
+        <!-- Шапка: Кнопка назад и Заголовок на одной строке -->
+        <div class="detail-header-row">
+            <button class="back-btn" onclick="closeDetailScreen()">← Назад</button>
+            <div id="detailTitle" class="detail-title">Объект</div>
+        </div>
         
         <!-- Галерея медиафайлов -->
         <div id="detailMedia" class="media-container">
@@ -324,7 +336,6 @@
         async function openDetailScreen(ad) {
             selectedAd = ad;
             
-            // Переключаем экраны
             document.getElementById('catalogScreen').style.display = 'none';
             document.getElementById('detailScreen').classList.add('active');
             window.scrollTo(0, 0);
@@ -404,7 +415,7 @@
         function closeDetailScreen() {
             document.getElementById('detailScreen').classList.remove('active');
             document.getElementById('catalogScreen').style.display = 'block';
-            document.getElementById('detailMedia').innerHTML = ''; // Останавливаем видео
+            document.getElementById('detailMedia').innerHTML = '';
         }
 
         function contactAgent() {
