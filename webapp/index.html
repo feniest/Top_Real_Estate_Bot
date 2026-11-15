@@ -150,9 +150,10 @@
             color: var(--text-color);
         }
         .modal-image-container {
+            position: relative;
             width: 100%;
-            height: 200px;
-            background: #e1e1e6;
+            height: 220px;
+            background: #1c1c1e;
             border-radius: 12px;
             overflow: hidden;
             display: flex;
@@ -160,10 +161,39 @@
             align-items: center;
             margin-bottom: 5px;
         }
-        .modal-image-container img {
+        .modal-image-container img, .modal-image-container video {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: contain;
+        }
+        .media-nav-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.55);
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        .media-prev { left: 8px; }
+        .media-next { right: 8px; }
+        .media-counter {
+            position: absolute;
+            bottom: 8px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
         }
         .no-photo {
             color: #8e8e93;
@@ -215,7 +245,7 @@
         <div class="loading">Загрузка каталога...</div>
     </div>
 
-    <!-- Модальное окно с деталями и медиа -->
+    <!-- Модальное окно с деталями и галереей медиа -->
     <div id="adModal" class="modal" onclick="closeModal(event)">
         <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-header">
@@ -223,14 +253,12 @@
                 <button class="close-btn" onclick="closeModal()">✕</button>
             </div>
             
-            <!-- Блок для медиафайла (фото) -->
+            <!-- Блок для галереи фото и видео -->
             <div id="modalMedia" class="modal-image-container">
-                <span class="no-photo">Нет фото</span>
+                <span class="no-photo">Загрузка медиа...</span>
             </div>
 
-            <div id="modalBody">
-                <!-- Характеристики -->
-            </div>
+            <div id="modalBody"></div>
             <button class="action-btn" onclick="contactAgent()">Связаться с риелтором</button>
         </div>
     </div>
@@ -241,6 +269,8 @@
         let currentRooms = 'all';
         let allAdsCache = [];
         let selectedAd = null;
+        let currentMediaList = [];
+        let currentMediaIndex = 0;
 
         const tg = window.Telegram.WebApp;
         tg.expand();
@@ -301,13 +331,9 @@
             });
         }
 
-        function openModal(ad) {
+        async function openModal(ad) {
             selectedAd = ad;
             document.getElementById('modalTitle').innerText = `${ad.prop_type === 'Houses' ? '🏠 Дом' : '🏢 Квартира'} №${ad.ad_num}`;
-            
-            // Загрузка фото через эндпоинт FastAPI из таблицы ad_media
-            const mediaContainer = document.getElementById('modalMedia');
-            mediaContainer.innerHTML = `<img src="/api/media/${ad.ad_num}" alt="Фото объекта" onerror="this.parentElement.innerHTML='<span class=\'no-photo\'>📸 Фото отсутствует</span>'">`;
 
             const priceFormatted = Number(ad.price).toLocaleString('ru-RU');
             const categoryText = ad.category === 'Rent' ? 'Аренда' : 'Продажа';
@@ -322,11 +348,67 @@
                 <div class="modal-info-row"><span>Этаж:</span> <strong>${ad.floor || '—'} / ${ad.floors_total || '—'}</strong></div>
             `;
 
+            const mediaContainer = document.getElementById('modalMedia');
+            mediaContainer.innerHTML = `<span class="no-photo">⏳ Загрузка фото и видео...</span>`;
             document.getElementById('adModal').classList.add('open');
+
+            try {
+                const res = await fetch(`/api/media-list/${ad.ad_num}`);
+                currentMediaList = await res.json();
+                currentMediaIndex = 0;
+                renderMediaViewer();
+            } catch (e) {
+                mediaContainer.innerHTML = `<span class="no-photo">📸 Медиафайлы отсутствуют</span>`;
+            }
+        }
+
+        function renderMediaViewer() {
+            const mediaContainer = document.getElementById('modalMedia');
+            if (!currentMediaList || currentMediaList.length === 0) {
+                mediaContainer.innerHTML = `<span class="no-photo">📸 Фото и видео отсутствуют</span>`;
+                return;
+            }
+
+            const item = currentMediaList[currentMediaIndex];
+            const url = `/api/media-file/${item.id}`;
+            let mediaHtml = '';
+
+            if (item.type === 'video') {
+                mediaHtml = `<video src="${url}" controls playsinline></video>`;
+            } else {
+                mediaHtml = `<img src="${url}" alt="Медиа">`;
+            }
+
+            if (currentMediaList.length > 1) {
+                mediaHtml += `
+                    <button class="media-nav-btn media-prev" onclick="prevMedia(event)">❮</button>
+                    <button class="media-nav-btn media-next" onclick="nextMedia(event)">❯</button>
+                    <div class="media-counter">${currentMediaIndex + 1} / ${currentMediaList.length}</div>
+                `;
+            }
+
+            mediaContainer.innerHTML = mediaHtml;
+        }
+
+        function prevMedia(e) {
+            e.stopPropagation();
+            if (currentMediaIndex > 0) {
+                currentMediaIndex--;
+                renderMediaViewer();
+            }
+        }
+
+        function nextMedia(e) {
+            e.stopPropagation();
+            if (currentMediaIndex < currentMediaList.length - 1) {
+                currentMediaIndex++;
+                renderMediaViewer();
+            }
         }
 
         function closeModal() {
             document.getElementById('adModal').classList.remove('open');
+            document.getElementById('modalMedia').innerHTML = ''; // Останавливаем видео при закрытии
         }
 
         function contactAgent() {

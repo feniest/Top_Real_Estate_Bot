@@ -1,5 +1,7 @@
 import os
 import logging
+import asyncio
+import psycopg2
 from aiogram import Bot, Dispatcher, Router, types
 from aiogram.filters import CommandStart
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
@@ -22,6 +24,17 @@ router = Router()
 
 # URL вашего мини-приложения на хостинге FadeHost Laplace
 WEB_APP_URL = "https://toprealestatebot.fadehost.app"
+
+# --- ПОДКЛЮЧЕНИЕ К POSTGRESQL ДЛЯ МЕДИАФАЙЛОВ ---
+def get_pg_connection():
+    return psycopg2.connect(
+        host="37.187.139.87",
+        port=35919,
+        database="fh7cba1949de20442fb8484660cc696208",
+        user="postgres",
+        password="7H6SEUopuXHTa9Hu9vpJ04onLYZ4",
+        connect_timeout=5
+    )
 
 # --- ОБРАБОТЧИКИ БОТА ---
 
@@ -58,30 +71,64 @@ async def serve_mini_app():
             return f.read()
     return "<h3>Файл webapp/index.html не найден на сервере!</h3>"
 
-# Эндпоинт для отдачи медиафайлов из таблицы ad_media
-@app.get("/api/media/{ad_num}")
-async def get_ad_media(ad_num: str):
+# 1. Возвращает список всех ID медиафайлов для объявления (фото и видео)
+@app.get("/api/media-list/{ad_num}")
+async def get_ad_media_list(ad_num: str):
     try:
-        conn = db.get_db_connection()
+        conn = get_pg_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT file_name, file_data FROM ad_media WHERE ad_number = %s",
-            (ad_num,)
+            "SELECT id, file_name FROM ad_media WHERE ad_number = %s ORDER BY id ASC",
+            (str(ad_num),)
         )
         rows = cursor.fetchall()
         cursor.close()
         conn.close()
 
-        for file_name, file_data in rows:
+        media_items = []
+        for media_id, file_name in rows:
             ext = file_name.lower().split('.')[-1]
-            if ext in ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif']:
-                content_type = f"image/{ext}"
-                if ext == 'jpg':
-                    content_type = "image/jpeg"
-                return Response(content=bytes(file_data), media_type=content_type)
-        
-        return Response(status_code=404)
+            m_type = "video" if ext in ['mp4', 'avi', 'mov', 'mkv', 'webm'] else "image"
+            media_items.append({"id": media_id, "type": m_type, "name": file_name})
+        return media_items
     except Exception as e:
+        logging.error(f"Ошибка получения списка медиа: {e}")
+        return []
+
+# 2. Отдает конкретный файл (фото или видео) по его ID из таблицы ad_media
+@app.get("/api/media-file/{media_id}")
+async def get_media_file(media_id: int):
+    try:
+        conn = get_pg_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT file_name, file_data FROM ad_media WHERE id = %s",
+            (media_id,)
+        )
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if not row:
+            return Response(status_code=404)
+
+        file_name, file_data = row
+        ext = file_name.lower().split('.')[-1]
+        
+        mime_types = {
+            "jpg": "image/jpeg",
+            "jpeg": "image/jpeg",
+            "png": "image/png",
+            "webp": "image/webp",
+            "gif": "image/gif",
+            "mp4": "video/mp4",
+            "mov": "video/quicktime",
+            "webm": "video/webm"
+        }
+        content_type = mime_types.get(ext, "application/octet-stream")
+        return Response(content=bytes(file_data), media_type=content_type)
+    except Exception as e:
+        logging.error(f"Ошибка отдачи медиафайла {media_id}: {e}")
         return Response(status_code=500, content=str(e))
 
 # API для отдачи объектов недвижимости в мини-приложение
@@ -109,7 +156,6 @@ async def get_ads(category: str = "Rent", prop_type: str = "all"):
 
 async def main():
     port = int(os.getenv("PORT", 8080))
-    
     logging.info("🤖 Запуск Telegram-бота и FastAPI сервера...")
 
     bot_task = asyncio.create_task(dp.start_polling(bot))
@@ -121,5 +167,4 @@ async def main():
     await bot_task
 
 if __name__ == "__main__":
-    import asyncio
     asyncio.run(main())
