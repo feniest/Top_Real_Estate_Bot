@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Инициализация бота и диспетчера
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("BOT_TOKEN")
-if not token:
+if not TOKEN:
     raise ValueError("Не найден токен бота! Проверьте переменные окружения на хостинге.")
 
 bot = Bot(token=TOKEN)
