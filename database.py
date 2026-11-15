@@ -37,3 +37,61 @@ def get_ad_media_files(ad_number: str):
     cursor.close()
     conn.close()
     return files
+    
+def get_filtered_ads(category: str = "all", prop_type: str = "all", district: str = "all", rooms: str = "all"):
+    """Получение активных квартир и домов по выбранным фильтрам"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    query = """
+        SELECT ad_number, category, property_type, rooms, district, landmark, area, floor, floors_total, price 
+        FROM ads 
+        WHERE is_active = 1
+    """
+    params = []
+    
+    if category != "all":
+        query += " AND category = %s"
+        params.append(category)
+        
+    if prop_type != "all":
+        query += " AND property_type = %s"
+        params.append(prop_type)
+        
+    if district != "all":
+        query += " AND district = %s"
+        params.append(district)
+        
+    if rooms != "all":
+        query += " AND rooms = %s"
+        params.append(rooms)
+        
+    query += " ORDER BY ad_number::integer ASC, id DESC;"
+    
+    cursor.execute(query, tuple(params))
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return rows
+
+def get_active_districts(category: str = "all", prop_type: str = "all"):
+    """Список районов, где есть актуальные объекты под выбранные фильтры"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    query = "SELECT DISTINCT district FROM ads WHERE is_active = 1 AND district IS NOT NULL AND district != ''"
+    params = []
+    
+    if category != "all":
+        query += " AND category = %s"
+        params.append(category)
+    if prop_type != "all":
+        query += " AND property_type = %s"
+        params.append(prop_type)
+        
+    query += " ORDER BY district;"
+    cursor.execute(query, tuple(params))
+    districts = [row[0] for row in cursor.fetchall()]
+    cursor.close()
+    conn.close()
+    return districts 
