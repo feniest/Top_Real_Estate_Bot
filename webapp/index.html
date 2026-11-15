@@ -102,68 +102,46 @@
             color: #8e8e93;
         }
 
-        /* Полноэкранное модальное окно */
-        .modal {
+        /* Встроенный экран с деталями объекта */
+        #detailScreen {
             display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.6);
-            z-index: 1000;
-            justify-content: center;
-            align-items: flex-end;
-        }
-        .modal.open {
-            display: flex;
-        }
-        .modal-content {
-            background: var(--card-bg);
-            width: 100%;
-            height: 95vh; /* Почти во весь экран по высоте */
-            border-radius: 20px 20px 0 0;
-            padding: 16px;
-            box-sizing: border-box;
-            display: flex;
             flex-direction: column;
             gap: 12px;
-            overflow-y: auto;
-            animation: slideUp 0.3s ease-out;
+            padding-bottom: 20px;
         }
-        @keyframes slideUp {
-            from { transform: translateY(100%); }
-            to { transform: translateY(0); }
-        }
-        .modal-header {
+        #detailScreen.active {
             display: flex;
-            justify-content: space-between;
+        }
+        .back-btn {
+            background: var(--card-bg);
+            border: 1px solid #d1d1d6;
+            color: var(--text-color);
+            padding: 10px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
             align-items: center;
-            font-size: 18px;
+            gap: 6px;
+            width: fit-content;
+        }
+        .detail-title {
+            font-size: 20px;
             font-weight: bold;
         }
-        .close-btn {
-            background: none;
-            border: none;
-            font-size: 22px;
-            cursor: pointer;
-            color: var(--text-color);
-            padding: 4px 8px;
-        }
-        /* Увеличенный контейнер для медиафайлов */
-        .modal-image-container {
+        .media-container {
             position: relative;
             width: 100%;
-            height: 340px; /* Сделали плеер значительно выше и удобнее для просмотра */
+            height: 360px;
             background: #000;
-            border-radius: 14px;
+            border-radius: 16px;
             overflow: hidden;
             display: flex;
             justify-content: center;
             align-items: center;
-            flex-shrink: 0;
         }
-        .modal-image-container img, .modal-image-container video {
+        .media-container img, .media-container video {
             width: 100%;
             height: 100%;
             object-fit: contain;
@@ -176,21 +154,21 @@
             color: #fff;
             border: none;
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            font-size: 18px;
+            width: 42px;
+            height: 42px;
+            font-size: 20px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             z-index: 10;
         }
-        .media-prev { left: 10px; }
-        .media-next { right: 10px; }
+        .media-prev { left: 12px; }
+        .media-next { right: 12px; }
         .media-counter {
             position: absolute;
-            bottom: 10px;
-            right: 12px;
+            bottom: 12px;
+            right: 14px;
             background: rgba(0, 0, 0, 0.7);
             color: #fff;
             font-size: 12px;
@@ -201,8 +179,17 @@
             color: #8e8e93;
             font-size: 14px;
         }
+        .info-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
         .modal-info-row {
-            font-size: 14px;
+            font-size: 15px;
             display: flex;
             justify-content: space-between;
             border-bottom: 1px solid rgba(0,0,0,0.06);
@@ -218,51 +205,52 @@
             font-weight: bold;
             cursor: pointer;
             text-align: center;
-            margin-top: auto; /* Прижимает кнопку в самый низ */
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
 
-    <div class="filters">
-        <div class="filter-row">
-            <button class="filter-btn active" onclick="setCategory('Rent', this)">🔑 Аренда</button>
-            <button class="filter-btn" onclick="setCategory('Sales', this)">💰 Продажа</button>
+    <!-- Главный экран с фильтрами и каталогом -->
+    <div id="catalogScreen">
+        <div class="filters">
+            <div class="filter-row">
+                <button class="filter-btn active" onclick="setCategory('Rent', this)">🔑 Аренда</button>
+                <button class="filter-btn" onclick="setCategory('Sales', this)">💰 Продажа</button>
+            </div>
+            <div class="filter-row">
+                <button class="filter-btn active" onclick="setPropType('all', this)">Все типы</button>
+                <button class="filter-btn" onclick="setPropType('Apartments', this)">🏢 Квартиры</button>
+                <button class="filter-btn" onclick="setPropType('Houses', this)">🏠 Дома</button>
+            </div>
+            <div class="filter-row">
+                <button class="filter-btn" onclick="toggleRooms('1', this)">1 к.</button>
+                <button class="filter-btn" onclick="toggleRooms('2', this)">2 к.</button>
+                <button class="filter-btn" onclick="toggleRooms('3', this)">3 к.</button>
+                <button class="filter-btn" onclick="toggleRooms('4', this)">4 к.</button>
+                <button class="filter-btn" onclick="toggleRooms('5+', this)">5+ к.</button>
+            </div>
         </div>
-        <div class="filter-row">
-            <button class="filter-btn active" onclick="setPropType('all', this)">Все типы</button>
-            <button class="filter-btn" onclick="setPropType('Apartments', this)">🏢 Квартиры</button>
-            <button class="filter-btn" onclick="setPropType('Houses', this)">🏠 Дома</button>
-        </div>
-        <div class="filter-row">
-            <button class="filter-btn" onclick="toggleRooms('1', this)">1 к.</button>
-            <button class="filter-btn" onclick="toggleRooms('2', this)">2 к.</button>
-            <button class="filter-btn" onclick="toggleRooms('3', this)">3 к.</button>
-            <button class="filter-btn" onclick="toggleRooms('4', this)">4 к.</button>
-            <button class="filter-btn" onclick="toggleRooms('5+', this)">5+ к.</button>
+
+        <div id="catalog" class="grid">
+            <div class="loading">Загрузка каталога...</div>
         </div>
     </div>
 
-    <div id="catalog" class="grid">
-        <div class="loading">Загрузка каталога...</div>
-    </div>
-
-    <!-- Модальное окно -->
-    <div id="adModal" class="modal" onclick="closeModal(event)">
-        <div class="modal-content" onclick="event.stopPropagation()">
-            <div class="modal-header">
-                <span id="modalTitle">Объект</span>
-                <button class="close-btn" onclick="closeModal()">✕</button>
-            </div>
-            
-            <!-- Большой блок для медиафайлов -->
-            <div id="modalMedia" class="modal-image-container">
-                <span class="no-photo">⏳ Загрузка медиа...</span>
-            </div>
-
-            <div id="modalBody"></div>
-            <button class="action-btn" onclick="contactAgent()">Связаться с риелтором</button>
+    <!-- Встроенный экран с подробной информацией об объекте -->
+    <div id="detailScreen">
+        <button class="back-btn" onclick="closeDetailScreen()">← Назад к каталогу</button>
+        <div id="detailTitle" class="detail-title">Объект</div>
+        
+        <!-- Галерея медиафайлов -->
+        <div id="detailMedia" class="media-container">
+            <span class="no-photo">⏳ Загрузка медиа...</span>
         </div>
+
+        <!-- Характеристики объекта -->
+        <div class="info-card" id="detailBody"></div>
+
+        <button class="action-btn" onclick="contactAgent()">Связаться с риелтором</button>
     </div>
 
     <script>
@@ -316,7 +304,7 @@
             filteredAds.forEach(ad => {
                 const card = document.createElement('div');
                 card.className = 'card';
-                card.onclick = () => openModal(ad);
+                card.onclick = () => openDetailScreen(ad);
 
                 const priceFormatted = Number(ad.price).toLocaleString('ru-RU');
                 const typeIcon = ad.prop_type === 'Houses' ? '🏠 Дом' : '🏢 Квартира';
@@ -333,14 +321,20 @@
             });
         }
 
-        async function openModal(ad) {
+        async function openDetailScreen(ad) {
             selectedAd = ad;
-            document.getElementById('modalTitle').innerText = `${ad.prop_type === 'Houses' ? '🏠 Дом' : '🏢 Квартира'} №${ad.ad_num}`;
+            
+            // Переключаем экраны
+            document.getElementById('catalogScreen').style.display = 'none';
+            document.getElementById('detailScreen').classList.add('active');
+            window.scrollTo(0, 0);
+
+            document.getElementById('detailTitle').innerText = `${ad.prop_type === 'Houses' ? '🏠 Дом' : '🏢 Квартира'} №${ad.ad_num}`;
 
             const priceFormatted = Number(ad.price).toLocaleString('ru-RU');
             const categoryText = ad.category === 'Rent' ? 'Аренда' : 'Продажа';
 
-            document.getElementById('modalBody').innerHTML = `
+            document.getElementById('detailBody').innerHTML = `
                 <div class="modal-info-row"><span>Цена:</span> <strong>${priceFormatted} $</strong></div>
                 <div class="modal-info-row"><span>Категория:</span> <strong>${categoryText}</strong></div>
                 <div class="modal-info-row"><span>Район:</span> <strong>${ad.district || '—'}</strong></div>
@@ -350,9 +344,8 @@
                 <div class="modal-info-row"><span>Этаж:</span> <strong>${ad.floor || '—'} / ${ad.floors_total || '—'}</strong></div>
             `;
 
-            const mediaContainer = document.getElementById('modalMedia');
+            const mediaContainer = document.getElementById('detailMedia');
             mediaContainer.innerHTML = `<span class="no-photo">⏳ Загрузка фото и видео...</span>`;
-            document.getElementById('adModal').classList.add('open');
 
             try {
                 const res = await fetch(`/api/media-list/${ad.ad_num}`);
@@ -365,7 +358,7 @@
         }
 
         function renderMediaViewer() {
-            const mediaContainer = document.getElementById('modalMedia');
+            const mediaContainer = document.getElementById('detailMedia');
             if (!currentMediaList || currentMediaList.length === 0) {
                 mediaContainer.innerHTML = `<span class="no-photo">📸 Фото и видео отсутствуют</span>`;
                 return;
@@ -408,9 +401,10 @@
             }
         }
 
-        function closeModal() {
-            document.getElementById('adModal').classList.remove('open');
-            document.getElementById('modalMedia').innerHTML = '';
+        function closeDetailScreen() {
+            document.getElementById('detailScreen').classList.remove('active');
+            document.getElementById('catalogScreen').style.display = 'block';
+            document.getElementById('detailMedia').innerHTML = ''; // Останавливаем видео
         }
 
         function contactAgent() {
