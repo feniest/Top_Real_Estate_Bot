@@ -99,7 +99,7 @@
 </head>
 <body>
 
-    <!-- Панель фильтров с добавлением комнат -->
+    <!-- Панель фильтров -->
     <div class="filters">
         <!-- Ряд 1: Аренда / Продажа -->
         <div class="filter-row">
@@ -112,14 +112,13 @@
             <button class="filter-btn" onclick="setPropType('Apartments', this)">🏢 Квартиры</button>
             <button class="filter-btn" onclick="setPropType('Houses', this)">🏠 Дома</button>
         </div>
-        <!-- Ряд 3: Количество комнат -->
+        <!-- Ряд 3: Количество комнат (без кнопки "Все комнаты", теперь фильтр переключаемый) -->
         <div class="filter-row">
-            <button class="filter-btn active" onclick="setRooms('all', this)">Все комнаты</button>
-            <button class="filter-btn" onclick="setRooms('1', this)">1 комн.</button>
-            <button class="filter-btn" onclick="setRooms('2', this)">2 комн.</button>
-            <button class="filter-btn" onclick="setRooms('3', this)">3 комн.</button>
-            <button class="filter-btn" onclick="setRooms('4', this)">4 комн.</button>
-            <button class="filter-btn" onclick="setRooms('5+', this)">5+ комн.</button>
+            <button class="filter-btn" onclick="toggleRooms('1', this)">1 комн.</button>
+            <button class="filter-btn" onclick="toggleRooms('2', this)">2 комн.</button>
+            <button class="filter-btn" onclick="toggleRooms('3', this)">3 комн.</button>
+            <button class="filter-btn" onclick="toggleRooms('4', this)">4 комн.</button>
+            <button class="filter-btn" onclick="toggleRooms('5+', this)">5+ комн.</button>
         </div>
     </div>
 
@@ -187,10 +186,16 @@
             loadAds();
         }
 
-        function setRooms(rooms, btn) {
-            currentRooms = rooms;
-            document.querySelectorAll('.filter-row:nth-child(3) .filter-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
+        // Логика переключения комнат (если кнопка уже активна — сбрасываем фильтр)
+        function toggleRooms(rooms, btn) {
+            if (btn.classList.contains('active')) {
+                btn.classList.remove('active');
+                currentRooms = 'all';
+            } else {
+                document.querySelectorAll('.filter-row:nth-child(3) .filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentRooms = rooms;
+            }
             loadAds();
         }
 
