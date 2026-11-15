@@ -6,15 +6,19 @@ import database as db
 
 router = Router()
 
-# --- НИЖНЯЯ КЛАВИАТУРА В СИСТИЛЕ ДЕСКТОПНОГО ПРИЛОЖЕНИЯ ---
+# --- НИЖНЯЯ КЛАВИАТУРА В СТИЛЕ ВКЛАДОК MAIN.PY ---
 
-def get_main_menu_keyboard(category: str = "Rent") -> ReplyKeyboardMarkup:
-    """Главное меню внизу экрана, адаптированное под логику main.py"""
-    cat_label = "💰 Переключить на Продажу" if category == "Rent" else "🔑 Переключить на Аренду"
+def get_main_menu_keyboard(category: str = "Rent", prop_type: str = "all") -> ReplyKeyboardMarkup:
+    # Динамически показываем, какая вкладка сейчас активна
+    rent_tab = "✅ 🔑 Аренда" if category == "Rent" else "🔑 Аренда"
+    sales_tab = "✅ 💰 Продажа" if category == "Sales" else "💰 Продажа"
     
+    apt_tab = "✅ 🏢 Квартиры" if prop_type == "Apartments" else "🏢 Квартиры"
+    house_tab = "✅ 🏠 Дома" if prop_type == "Houses" else "🏠 Дома"
+
     keyboard = [
-        [KeyboardButton(text="🏢 Квартиры (Аренда / Продажа)"), KeyboardButton(text="🏠 Дома (Аренда / Продажа)")],
-        [KeyboardButton(text=cat_label)],
+        [KeyboardButton(text=rent_tab), KeyboardButton(text=sales_tab)],
+        [KeyboardButton(text=apt_tab), KeyboardButton(text=house_tab)],
         [KeyboardButton(text="📍 Выбрать район"), KeyboardButton(text="🚪 Выбрать комнатность")],
         [KeyboardButton(text="📋 Показать объекты"), KeyboardButton(text="🔄 Сбросить фильтры")]
     ]
@@ -30,13 +34,13 @@ def render_main_panel(count: int, category: str = "Rent", prop_type: str = "all"
         "<blockquote>"
         "<b>🏢 РБД УПРАВЛЕНИЕ НЕДВИЖИМОСТЬЮ</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"📂 <b>Текущий раздел:</b> {cat_name}\n"
+        f"📂 <b>Категория:</b> {cat_name}\n"
         f"🏘 <b>Тип недвижимости:</b> {type_map.get(prop_type, prop_type)}\n"
         f"🚪 <b>Комнатность:</b> {rooms_str}\n"
         f"📍 <b>Район:</b> {dist_str}\n"
         f"📊 <b>Найдено объектов:</b> <code>{count}</code>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "<i>Используйте кнопки внизу для навигации:</i>"
+        "<i>Используйте кнопки внизу для управления:</i>"
         "</blockquote>"
     )
 
@@ -99,6 +103,7 @@ def get_object_keyboard(index: int, total: int, ad_num: str) -> InlineKeyboardMa
 
 @router.message(CommandStart())
 async def cmd_start(message: types.Message, state: FSMContext):
+    # По умолчанию при старте активна вкладка "Аренда" (Rent)
     await state.update_data(category="Rent", prop_type="all", district="all", rooms="all")
     ads = db.get_filtered_ads(category="Rent")
     
@@ -108,42 +113,59 @@ async def cmd_start(message: types.Message, state: FSMContext):
         parse_mode="HTML"
     )
 
-@router.message(F.text.in_({"🔑 Переключить на Аренду", "💰 Переключить на Продажу"}))
-async def toggle_category(message: types.Message, state: FSMContext):
+@router.message(F.text.in_({"🔑 Аренда", "✅ 🔑 Аренда"}))
+async def select_rent(message: types.Message, state: FSMContext):
+    await state.update_data(category="Rent")
     data = await state.get_data()
-    curr = data.get("category", "Rent")
-    new_cat = "Sales" if curr == "Rent" else "Rent"
-    await state.update_data(category=new_cat)
-    
-    ads = db.get_filtered_ads(category=new_cat, prop_type=data.get("prop_type", "all"), district=data.get("district", "all"), rooms=data.get("rooms", "all"))
+    ads = db.get_filtered_ads(category="Rent", prop_type=data.get("prop_type", "all"), district=data.get("district", "all"), rooms=data.get("rooms", "all"))
     
     await message.answer(
-        text=render_main_panel(len(ads), category=new_cat, prop_type=data.get("prop_type", "all"), district=data.get("district", "all"), rooms=data.get("rooms", "all")),
-        reply_markup=get_main_menu_keyboard(category=new_cat),
+        text=render_main_panel(len(ads), category="Rent", prop_type=data.get("prop_type", "all"), district=data.get("district", "all"), rooms=data.get("rooms", "all")),
+        reply_markup=get_main_menu_keyboard(category="Rent", prop_type=data.get("prop_type", "all")),
         parse_mode="HTML"
     )
 
-@router.message(F.text == "🏢 Квартиры (Аренда / Продажа)")
+@router.message(F.text.in_({"💰 Продажа", "✅ 💰 Продажа"}))
+async def select_sales(message: types.Message, state: FSMContext):
+    await state.update_data(category="Sales")
+    data = await state.get_data()
+    ads = db.get_filtered_ads(category="Sales", prop_type=data.get("prop_type", "all"), district=data.get("district", "all"), rooms=data.get("rooms", "all"))
+    
+    await message.answer(
+        text=render_main_panel(len(ads), category="Sales", prop_type=data.get("prop_type", "all"), district=data.get("district", "all"), rooms=data.get("rooms", "all")),
+        reply_markup=get_main_menu_keyboard(category="Sales", prop_type=data.get("prop_type", "all")),
+        parse_mode="HTML"
+    )
+
+@router.message(F.text.in_({"🏢 Квартиры", "✅ 🏢 Квартиры"}))
 async def select_apartments(message: types.Message, state: FSMContext):
-    await state.update_data(prop_type="Apartments")
     data = await state.get_data()
-    ads = db.get_filtered_ads(category=data.get("category", "Rent"), prop_type="Apartments", district=data.get("district", "all"), rooms=data.get("rooms", "all"))
+    curr = data.get("prop_type")
+    new_val = "all" if curr == "Apartments" else "Apartments"
+    await state.update_data(prop_type=new_val)
+    
+    data = await state.get_data()
+    ads = db.get_filtered_ads(category=data.get("category", "Rent"), prop_type=data.get("prop_type", "all"), district=data.get("district", "all"), rooms=data.get("rooms", "all"))
     
     await message.answer(
-        text=render_main_panel(len(ads), category=data.get("category", "Rent"), prop_type="Apartments", district=data.get("district", "all"), rooms=data.get("rooms", "all")),
-        reply_markup=get_main_menu_keyboard(category=data.get("category", "Rent")),
+        text=render_main_panel(len(ads), category=data.get("category", "Rent"), prop_type=data.get("prop_type", "all"), district=data.get("district", "all"), rooms=data.get("rooms", "all")),
+        reply_markup=get_main_menu_keyboard(category=data.get("category", "Rent"), prop_type=data.get("prop_type", "all")),
         parse_mode="HTML"
     )
 
-@router.message(F.text == "🏠 Дома (Аренда / Продажа)")
+@router.message(F.text.in_({"🏠 Дома", "✅ 🏠 Дома"}))
 async def select_houses(message: types.Message, state: FSMContext):
-    await state.update_data(prop_type="Houses")
     data = await state.get_data()
-    ads = db.get_filtered_ads(category=data.get("category", "Rent"), prop_type="Houses", district=data.get("district", "all"), rooms=data.get("rooms", "all"))
+    curr = data.get("prop_type")
+    new_val = "all" if curr == "Houses" else "Houses"
+    await state.update_data(prop_type=new_val)
+    
+    data = await state.get_data()
+    ads = db.get_filtered_ads(category=data.get("category", "Rent"), prop_type=data.get("prop_type", "all"), district=data.get("district", "all"), rooms=data.get("rooms", "all"))
     
     await message.answer(
-        text=render_main_panel(len(ads), category=data.get("category", "Rent"), prop_type="Houses", district=data.get("district", "all"), rooms=data.get("rooms", "all")),
-        reply_markup=get_main_menu_keyboard(category=data.get("category", "Rent")),
+        text=render_main_panel(len(ads), category=data.get("category", "Rent"), prop_type=data.get("prop_type", "all"), district=data.get("district", "all"), rooms=data.get("rooms", "all")),
+        reply_markup=get_main_menu_keyboard(category=data.get("category", "Rent"), prop_type=data.get("prop_type", "all")),
         parse_mode="HTML"
     )
 
