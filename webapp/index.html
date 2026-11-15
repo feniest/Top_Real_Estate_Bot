@@ -42,12 +42,14 @@
         .filter-btn {
             background: var(--card-bg);
             border: 1px solid #d1d1d6;
-            padding: 6px 14px;
-            border-radius: 16px;
-            font-size: 13px;
+            padding: 5px 8px; /* Уменьшили внутренние отступы */
+            border-radius: 12px;
+            font-size: 11px; /* Чуть уменьшили шрифт, чтобы все поместились */
             cursor: pointer;
             white-space: nowrap;
             color: var(--text-color);
+            flex: 1; /* Равномерно распределяем ширину кнопок в ряду */
+            text-align: center;
             transition: all 0.2s;
         }
         .filter-btn.active {
@@ -99,7 +101,6 @@
 </head>
 <body>
 
-    <!-- Панель фильтров -->
     <div class="filters">
         <!-- Ряд 1: Аренда / Продажа -->
         <div class="filter-row">
@@ -112,17 +113,16 @@
             <button class="filter-btn" onclick="setPropType('Apartments', this)">🏢 Квартиры</button>
             <button class="filter-btn" onclick="setPropType('Houses', this)">🏠 Дома</button>
         </div>
-        <!-- Ряд 3: Количество комнат (без кнопки "Все комнаты", теперь фильтр переключаемый) -->
+        <!-- Ряд 3: Компактные кнопки комнат -->
         <div class="filter-row">
-            <button class="filter-btn" onclick="toggleRooms('1', this)">1 комн.</button>
-            <button class="filter-btn" onclick="toggleRooms('2', this)">2 комн.</button>
-            <button class="filter-btn" onclick="toggleRooms('3', this)">3 комн.</button>
-            <button class="filter-btn" onclick="toggleRooms('4', this)">4 комн.</button>
-            <button class="filter-btn" onclick="toggleRooms('5+', this)">5+ комн.</button>
+            <button class="filter-btn" onclick="toggleRooms('1', this)">1 к.</button>
+            <button class="filter-btn" onclick="toggleRooms('2', this)">2 к.</button>
+            <button class="filter-btn" onclick="toggleRooms('3', this)">3 к.</button>
+            <button class="filter-btn" onclick="toggleRooms('4', this)">4 к.</button>
+            <button class="filter-btn" onclick="toggleRooms('5+', this)">5+ к.</button>
         </div>
     </div>
 
-    <!-- Сетка карточек -->
     <div id="catalog" class="grid">
         <div class="loading">Загрузка каталога...</div>
     </div>
@@ -186,7 +186,6 @@
             loadAds();
         }
 
-        // Логика переключения комнат (если кнопка уже активна — сбрасываем фильтр)
         function toggleRooms(rooms, btn) {
             if (btn.classList.contains('active')) {
                 btn.classList.remove('active');
