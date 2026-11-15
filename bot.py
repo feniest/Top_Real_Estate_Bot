@@ -60,10 +60,27 @@ async def serve_mini_app():
 
 # API для отдачи объектов недвижимости в мини-приложение
 @app.get("/api/ads")
-async def get_ads(category: str = "Rent", prop_type: str = "all"):
+async def get_ads(category: str = "Rent", prop_type: str = "all", rooms: str = "all"):
     raw_ads = db.get_filtered_ads(category=category, prop_type=prop_type)
     result = []
+    
     for ad in raw_ads:
+        # ad[3] — это количество комнат в базе данных
+        ad_rooms = str(ad[3]) if ad[3] is not None else ""
+        
+        # Фильтрация по комнатам на бэкенде
+        if rooms != "all":
+            if rooms == "5+":
+                # Если выбрали 5+, то комнаты должны быть >= 5
+                try:
+                    if int(ad_rooms) < 5:
+                        continue
+                except ValueError:
+                    continue
+            else:
+                if ad_rooms != rooms:
+                    continue
+
         result.append({
             "ad_num": ad[0],
             "category": ad[1],
