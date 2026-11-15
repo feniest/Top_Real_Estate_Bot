@@ -19,6 +19,7 @@
             color: var(--text-color);
             margin: 0;
             padding: 12px;
+            box-sizing: border-box;
         }
         .filters {
             position: sticky;
@@ -102,22 +103,30 @@
             color: #8e8e93;
         }
 
-        /* Встроенный экран с деталями объекта */
+        /* Экран деталей: шапка и медиа закреплены, скроллится только карточка с текстом */
         #detailScreen {
             display: none;
             flex-direction: column;
-            gap: 12px;
-            padding-bottom: 20px;
+            height: calc(100vh - 24px);
+            box-sizing: border-box;
+            overflow: hidden; /* Общий экран не скроллится целиком */
         }
         #detailScreen.active {
             display: flex;
         }
 
+        /* Абсолютно закрепленная шапка */
+        .detail-header-fixed {
+            position: sticky;
+            top: 0;
+            background: var(--bg-color);
+            z-index: 100;
+            padding-bottom: 8px;
+        }
         .detail-header-row {
             display: flex;
             align-items: center;
             gap: 12px;
-            margin-bottom: 4px;
         }
         .back-btn {
             background: var(--card-bg);
@@ -138,13 +147,13 @@
             white-space: nowrap;
         }
 
-        /* ЗАКРЕПЛЕННЫЙ КОНТЕЙНЕР МЕДИАФАЙЛОВ */
+        /* Абсолютно закрепленный просмотрщик медиафайлов */
         .media-container {
             position: sticky;
-            top: 0; /* При прокрутке прилипает к самому верху экрана */
-            z-index: 50;
+            top: 48px; /* Сразу под шапкой */
+            z-index: 90;
             width: 100%;
-            height: 360px;
+            height: 320px;
             background: #000;
             border-radius: 16px;
             overflow: hidden;
@@ -152,6 +161,8 @@
             justify-content: center;
             align-items: center;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            flex-shrink: 0;
+            margin-top: 8px;
         }
         .media-container img, .media-container video {
             width: 100%;
@@ -191,6 +202,22 @@
             color: #8e8e93;
             font-size: 14px;
         }
+
+        /* Перемещаемая (скроллящаяся) область характеристик */
+        .scrollable-content {
+            flex-grow: 1;
+            overflow-y: auto; /* Скроллится только эта часть */
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding-top: 10px;
+            padding-bottom: 20px;
+            scrollbar-width: none;
+        }
+        .scrollable-content::-webkit-scrollbar {
+            display: none;
+        }
+
         .info-card {
             background: var(--card-bg);
             border-radius: 16px;
@@ -217,7 +244,9 @@
             font-weight: bold;
             cursor: pointer;
             text-align: center;
-            margin-top: 10px;
+            width: 100%;
+            box-sizing: border-box;
+            margin-top: 6px;
         }
     </style>
 </head>
@@ -249,11 +278,14 @@
         </div>
     </div>
 
-    <!-- Встроенный экран с подробной информацией об объекте -->
+    <!-- Встроенный экран с деталями объекта -->
     <div id="detailScreen">
-        <div class="detail-header-row">
-            <button class="back-btn" onclick="closeDetailScreen()">← Назад</button>
-            <div id="detailTitle" class="detail-title">Объект</div>
+        <!-- Закрепленная шапка (Назад + Заголовок) -->
+        <div class="detail-header-fixed">
+            <div class="detail-header-row">
+                <button class="back-btn" onclick="closeDetailScreen()">← Назад</button>
+                <div id="detailTitle" class="detail-title">Объект</div>
+            </div>
         </div>
         
         <!-- Закрепленная галерея медиафайлов -->
@@ -261,10 +293,11 @@
             <span class="no-photo">⏳ Загрузка медиа...</span>
         </div>
 
-        <!-- Характеристики объекта -->
-        <div class="info-card" id="detailBody"></div>
-
-        <button class="action-btn" onclick="contactAgent()">Связаться с риелтором</button>
+        <!-- Перемещаемая (скроллящаяся) карточка с характеристиками и кнопкой связи -->
+        <div class="scrollable-content">
+            <div class="info-card" id="detailBody"></div>
+            <button class="action-btn" onclick="contactAgent()">Связаться с риелтором</button>
+        </div>
     </div>
 
     <script>
@@ -340,7 +373,6 @@
             
             document.getElementById('catalogScreen').style.display = 'none';
             document.getElementById('detailScreen').classList.add('active');
-            window.scrollTo(0, 0);
 
             document.getElementById('detailTitle').innerText = `${ad.prop_type === 'Houses' ? '🏠 Дом' : '🏢 Квартира'} №${ad.ad_num}`;
 
