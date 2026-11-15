@@ -63,7 +63,6 @@ async def serve_mini_app():
 async def get_ads(category: str = "Rent", prop_type: str = "all"):
     raw_ads = db.get_filtered_ads(category=category, prop_type=prop_type)
     result = []
-    
     for ad in raw_ads:
         result.append({
             "ad_num": ad[0],

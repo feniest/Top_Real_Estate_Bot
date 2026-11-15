@@ -71,6 +71,10 @@
             display: flex;
             flex-direction: column;
             cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .card:active {
+            transform: scale(0.97);
         }
         .card-body {
             padding: 10px;
@@ -97,23 +101,87 @@
             padding: 30px;
             color: #8e8e93;
         }
+
+        /* Модальное окно (Детали объекта) */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: flex-end;
+        }
+        .modal.open {
+            display: flex;
+        }
+        .modal-content {
+            background: var(--card-bg);
+            width: 100%;
+            max-height: 85vh;
+            border-radius: 20px 20px 0 0;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+            animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: var(--text-color);
+        }
+        .modal-info-row {
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            padding: 6px 0;
+        }
+        .action-btn {
+            background: var(--button-color);
+            color: var(--button-text);
+            border: none;
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            text-align: center;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
 
     <div class="filters">
-        <!-- Ряд 1: Аренда / Продажа -->
         <div class="filter-row">
             <button class="filter-btn active" onclick="setCategory('Rent', this)">🔑 Аренда</button>
             <button class="filter-btn" onclick="setCategory('Sales', this)">💰 Продажа</button>
         </div>
-        <!-- Ряд 2: Тип недвижимости -->
         <div class="filter-row">
             <button class="filter-btn active" onclick="setPropType('all', this)">Все типы</button>
             <button class="filter-btn" onclick="setPropType('Apartments', this)">🏢 Квартиры</button>
             <button class="filter-btn" onclick="setPropType('Houses', this)">🏠 Дома</button>
         </div>
-        <!-- Ряд 3: Компактные кнопки комнат -->
         <div class="filter-row">
             <button class="filter-btn" onclick="toggleRooms('1', this)">1 к.</button>
             <button class="filter-btn" onclick="toggleRooms('2', this)">2 к.</button>
@@ -127,11 +195,26 @@
         <div class="loading">Загрузка каталога...</div>
     </div>
 
+    <!-- Модальное окно с деталями -->
+    <div id="adModal" class="modal" onclick="closeModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <span id="modalTitle">Объект</span>
+                <button class="close-btn" onclick="closeModal()">✕</button>
+            </div>
+            <div id="modalBody">
+                <!-- Сюда динамически подгрузятся данные -->
+            </div>
+            <button class="action-btn" onclick="contactAgent()">Связаться с риелтором</button>
+        </div>
+    </div>
+
     <script>
         let currentCategory = 'Rent';
         let currentPropType = 'all';
         let currentRooms = 'all';
-        let allAdsCache = []; // Кэш всех загруженных объявлений
+        let allAdsCache = [];
+        let selectedAd = null;
 
         const tg = window.Telegram.WebApp;
         tg.expand();
@@ -141,10 +224,8 @@
             catalog.innerHTML = '<div class="loading">Загрузка...</div>';
 
             try {
-                // Запрашиваем с бэкенда только категорию и тип
                 const response = await fetch(`/api/ads?category=${currentCategory}&prop_type=${currentPropType}`);
                 allAdsCache = await response.json();
-                
                 renderAds();
             } catch (err) {
                 console.error(err);
@@ -156,20 +237,15 @@
             const catalog = document.getElementById('catalog');
             catalog.innerHTML = '';
 
-            // Фильтруем массив прямо в браузере
             const filteredAds = allAdsCache.filter(ad => {
                 if (currentRooms === 'all') return true;
                 if (ad.rooms === null || ad.rooms === undefined) return false;
-
                 const roomsStr = String(ad.rooms).trim();
-                
                 if (currentRooms === '5+') {
-                    // Извлекаем первую цифру из строки комнаты (например, из "5" или "5+")
                     const match = roomsStr.match(/\d+/);
                     if (!match) return false;
                     return parseInt(match[0], 10) >= 5;
                 } else {
-                    // Точное совпадение для 1, 2, 3, 4
                     return roomsStr.startsWith(currentRooms);
                 }
             });
@@ -182,6 +258,8 @@
             filteredAds.forEach(ad => {
                 const card = document.createElement('div');
                 card.className = 'card';
+                card.onclick = () => openModal(ad); // Привязываем клик по карточке
+
                 const priceFormatted = Number(ad.price).toLocaleString('ru-RU');
                 const typeIcon = ad.prop_type === 'Houses' ? '🏠 Дом' : '🏢 Квартира';
 
@@ -195,6 +273,38 @@
                 `;
                 catalog.appendChild(card);
             });
+        }
+
+        function openModal(ad) {
+            selectedAd = ad;
+            document.getElementById('modalTitle').innerText = `${ad.prop_type === 'Houses' ? '🏠 Дом' : '🏢 Квартира'} №${ad.ad_num}`;
+            
+            const priceFormatted = Number(ad.price).toLocaleString('ru-RU');
+            const categoryText = ad.category === 'Rent' ? 'Аренда' : 'Продажа';
+
+            document.getElementById('modalBody').innerHTML = `
+                <div class="modal-info-row"><span>Цена:</span> <strong>${priceFormatted} $</strong></div>
+                <div class="modal-info-row"><span>Категория:</span> <strong>${categoryText}</strong></div>
+                <div class="modal-info-row"><span>Район:</span> <strong>${ad.district || '—'}</strong></div>
+                <div class="modal-info-row"><span>Ориентир:</span> <strong>${ad.landmark || '—'}</strong></div>
+                <div class="modal-info-row"><span>Комнат:</span> <strong>${ad.rooms || '—'}</strong></div>
+                <div class="modal-info-row"><span>Площадь:</span> <strong>${ad.area ? ad.area + ' м²' : '—'}</strong></div>
+                <div class="modal-info-row"><span>Этаж:</span> <strong>${ad.floor || '—'} / ${ad.floors_total || '—'}</strong></div>
+            `;
+
+            document.getElementById('adModal').classList.add('open');
+        }
+
+        function closeModal() {
+            document.getElementById('adModal').classList.remove('open');
+        }
+
+        function contactAgent() {
+            if (selectedAd) {
+                // Отправляем данные боту или закрываем веб-апп с передачей выбранного объекта
+                tg.sendData(JSON.stringify({ action: "contact", ad_num: selectedAd.ad_num }));
+                tg.close();
+            }
         }
 
         function setCategory(cat, btn) {
@@ -220,7 +330,7 @@
                 btn.classList.add('active');
                 currentRooms = rooms;
             }
-            renderAds(); // Перерисовываем мгновенно без повторного запроса к серверу
+            renderAds();
         }
 
         loadAds();
