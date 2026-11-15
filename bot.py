@@ -1,14 +1,19 @@
 import os
 import logging
 import asyncio
+import json
 import psycopg2
-from aiogram import Bot, Dispatcher, Router, types
+from dotenv import load_dotenv
+from aiogram import Bot, Dispatcher, Router, types, F
 from aiogram.filters import CommandStart
 from aiogram.types import WebAppInfo, BotCommand, MenuButtonWebApp
 import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, Response
 import database as db
+
+# Загружаем переменные окружения из файла .env (если он есть)
+load_dotenv()
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -25,14 +30,20 @@ router = Router()
 # URL вашего мини-приложения на хостинге FadeHost Laplace
 WEB_APP_URL = "https://toprealestatebot.fadehost.app"
 
-# --- ПОДКЛЮЧЕНИЕ К POSTGRESQL ДЛЯ МЕДИАФАЙЛОВ ---
+# Получаем ID администратора (риелтора) из переменных окружения
+ADMIN_ID_STR = os.getenv("ADMIN_ID")
+if not ADMIN_ID_STR:
+    raise ValueError("Не найден ADMIN_ID в переменных окружения!")
+ADMIN_ID = int(ADMIN_ID_STR)
+
+# --- БЕЗОПАСНОЕ ПОДКЛЮЧЕНИЕ К POSTGRESQL ---
 def get_pg_connection():
     return psycopg2.connect(
-        host="37.187.139.87",
-        port=35919,
-        database="fh7cba1949de20442fb8484660cc696208",
-        user="postgres",
-        password="7H6SEUopuXHTa9Hu9vpJ04onLYZ4",
+        host=os.getenv("DB_HOST", "37.187.139.87"),
+        port=int(os.getenv("DB_PORT", 35919)),
+        database=os.getenv("DB_NAME", "fh7cba1949de20442fb8484660cc696208"),
+        user=os.getenv("DB_USER", "postgres"),
+        password=os.getenv("DB_PASSWORD"),  # Берется исключительно из окружения!
         connect_timeout=5
     )
 
@@ -52,11 +63,45 @@ async def cmd_start(message: types.Message):
         "👇 <i>Для открытия каталога нажмите кнопку <b>«Каталог»</b> внизу экрана.</i>"
     )
     
-    # Отправляем сообщение без инлайн-кнопки
     await message.answer(
         text=welcome_text,
         parse_mode="HTML"
     )
+
+# --- ОБРАБОТЧИК ЗАЯВОК ИЗ МИНИ-ПРИЛОЖЕНИЯ ---
+@router.message(F.web_app_data)
+async def handle_web_app_data(message: types.Message):
+    try:
+        data = json.loads(message.web_app_data.data)
+        
+        if data.get("action") == "contact":
+            ad_num = data.get("ad_num")
+            user = message.from_user
+            user_link = f"@{user.username}" if user.username else f"ID: {user.id}"
+            
+            # Текст уведомления для вас (риелтора/админа)
+            admin_text = (
+                f"🔔 **Новая заявка из каталога недвижимости!**\n\n"
+                f"🏠 **Объект №:** {ad_num}\n\n"
+                f"👤 **Клиент:** {user.full_name} ({user_link})\n"
+                f"🆔 **Telegram ID:** `{user.id}`"
+            )
+            
+            # Отправляем уведомление администратору
+            await message.bot.send_message(
+                chat_id=ADMIN_ID,
+                text=admin_text,
+                parse_mode="Markdown"
+            )
+            
+            # Подтверждение клиенту в чат
+            await message.answer(
+                "✅ **Ваша заявка успешно отправлена!**\n\n"
+                "Риелтор получил информацию по выбранному объекту и свяжется с вами в ближайшее время.",
+                parse_mode="Markdown"
+            )
+    except Exception as e:
+        logging.error(f"Ошибка обработки WebApp данных: {e}")
 
 dp.include_router(router)
 
@@ -157,7 +202,6 @@ async def main():
     port = int(os.getenv("PORT", 8080))
     logging.info("🤖 Запуск Telegram-бота и FastAPI сервера...")
 
-    # Установка команды меню и постоянной кнопки WebApp внизу интерфейса
     await bot.set_my_commands([BotCommand(command="start", description="Запустить каталог недвижимости")])
     try:
         await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(text="🏠 Каталог", web_app=WebAppInfo(url=WEB_APP_URL)))
