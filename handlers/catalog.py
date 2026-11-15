@@ -292,6 +292,5 @@ async def send_object_media(callback: types.CallbackQuery):
     await callback.answer()
 
 @router.callback_query(F.data == "noop")
-async def noop(callback: types.Category = None, callback_query: types.CallbackQuery = None):
-    if callback_query:
-        await callback_query.answer()
+async def noop(callback_query: types.CallbackQuery):
+    await callback_query.answer()
