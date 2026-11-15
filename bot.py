@@ -4,7 +4,7 @@ import asyncio
 import psycopg2
 from aiogram import Bot, Dispatcher, Router, types
 from aiogram.filters import CommandStart
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo, BotCommand, MenuButtonWebApp
 import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, Response
@@ -38,7 +38,6 @@ def get_pg_connection():
 
 # --- ОБРАБОТЧИКИ БОТА ---
 
-@router.message(CommandStart())
 @router.message(CommandStart())
 async def cmd_start(message: types.Message):
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -75,7 +74,6 @@ dp.include_router(router)
 
 app = FastAPI(title="Top Real Estate Mini App")
 
-# Подключаем статический HTML-файл мини-приложения из папки webapp/index.html
 @app.get("/", response_class=HTMLResponse)
 async def serve_mini_app():
     index_path = os.path.join("webapp", "index.html")
@@ -84,7 +82,6 @@ async def serve_mini_app():
             return f.read()
     return "<h3>Файл webapp/index.html не найден на сервере!</h3>"
 
-# 1. Возвращает список всех ID медиафайлов для объявления (фото и видео)
 @app.get("/api/media-list/{ad_num}")
 async def get_ad_media_list(ad_num: str):
     try:
@@ -108,7 +105,6 @@ async def get_ad_media_list(ad_num: str):
         logging.error(f"Ошибка получения списка медиа: {e}")
         return []
 
-# 2. Отдает конкретный файл (фото или видео) по его ID из таблицы ad_media
 @app.get("/api/media-file/{media_id}")
 async def get_media_file(media_id: int):
     try:
@@ -144,7 +140,6 @@ async def get_media_file(media_id: int):
         logging.error(f"Ошибка отдачи медиафайла {media_id}: {e}")
         return Response(status_code=500, content=str(e))
 
-# API для отдачи объектов недвижимости в мини-приложение
 @app.get("/api/ads")
 async def get_ads(category: str = "Rent", prop_type: str = "all"):
     raw_ads = db.get_filtered_ads(category=category, prop_type=prop_type)
@@ -170,6 +165,13 @@ async def get_ads(category: str = "Rent", prop_type: str = "all"):
 async def main():
     port = int(os.getenv("PORT", 8080))
     logging.info("🤖 Запуск Telegram-бота и FastAPI сервера...")
+
+    # Установка команды меню и кнопки WebApp
+    await bot.set_my_commands([BotCommand(command="start", description="Запустить каталог недвижимости")])
+    try:
+        await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(text="🏠 Каталог", web_app=WebAppInfo(url=WEB_APP_URL)))
+    except Exception:
+        pass
 
     bot_task = asyncio.create_task(dp.start_polling(bot))
 

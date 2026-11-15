@@ -21,6 +21,54 @@
             padding: 12px;
             box-sizing: border-box;
         }
+
+        /* Приветственное модальное окно */
+        #welcomeScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+            box-sizing: border-box;
+        }
+        .welcome-card {
+            background: var(--card-bg);
+            width: 100%;
+            max-width: 360px;
+            border-radius: 20px;
+            padding: 24px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        .welcome-card h2 {
+            margin: 0;
+            font-size: 20px;
+            color: var(--text-color);
+        }
+        .welcome-card p {
+            margin: 0;
+            font-size: 14px;
+            color: #6b7280;
+            line-height: 1.4;
+        }
+        .welcome-card ul {
+            text-align: left;
+            font-size: 13px;
+            color: #4b5563;
+            padding-left: 20px;
+            margin: 5px 0;
+        }
+
         .filters {
             position: sticky;
             top: 0;
@@ -115,7 +163,6 @@
             display: flex;
         }
 
-        /* Абсолютно закрепленная шапка на одной строке */
         .detail-header-fixed {
             position: sticky;
             top: 0;
@@ -147,7 +194,6 @@
             white-space: nowrap;
         }
 
-        /* Абсолютно закрепленный просмотрщик медиафайлов */
         .media-container {
             position: sticky;
             top: 48px;
@@ -203,7 +249,6 @@
             font-size: 14px;
         }
 
-        /* Перемещаемая (скроллящаяся) область характеристик */
         .scrollable-content {
             flex-grow: 1;
             overflow-y: auto;
@@ -252,6 +297,20 @@
 </head>
 <body>
 
+    <!-- Приветственное окно при запуске Mini App -->
+    <div id="welcomeScreen">
+        <div class="welcome-card">
+            <h2>🏢 Добро пожаловать!</h2>
+            <p>Вы открыли каталог <b>РБД Управление недвижимостью</b>. Здесь собраны лучшие предложения по аренде и продаже квартир и домов.</p>
+            <ul>
+                <li>Удобные фильтры по комнатам</li>
+                <li>Просмотр фото и видео в высоком качестве</li>
+                <li>Быстрая связь с риелтором</li>
+            </ul>
+            <button class="action-btn" onclick="closeWelcome()">Перейти к каталогу 🚀</button>
+        </div>
+    </div>
+
     <!-- Главный экран с фильтрами и каталогом -->
     <div id="catalogScreen">
         <div class="filters">
@@ -280,7 +339,6 @@
 
     <!-- Встроенный экран с деталями объекта -->
     <div id="detailScreen">
-        <!-- Шапка (Назад + Название на одной строке) -->
         <div class="detail-header-fixed">
             <div class="detail-header-row">
                 <button class="back-btn" onclick="closeDetailScreen()">← Назад</button>
@@ -288,12 +346,10 @@
             </div>
         </div>
         
-        <!-- Закрепленная галерея медиафайлов -->
         <div id="detailMedia" class="media-container">
             <span class="no-photo">⏳ Загрузка медиа...</span>
         </div>
 
-        <!-- Скроллящаяся карточка с характеристиками и кнопкой связи -->
         <div class="scrollable-content">
             <div class="info-card" id="detailBody"></div>
             <button class="action-btn" onclick="contactAgent()">Связаться с риелтором</button>
@@ -311,6 +367,11 @@
 
         const tg = window.Telegram.WebApp;
         tg.expand();
+
+        function closeWelcome() {
+            document.getElementById('welcomeScreen').style.display = 'none';
+            loadAds();
+        }
 
         async function loadAds() {
             const catalog = document.getElementById('catalog');
@@ -484,8 +545,6 @@
             }
             renderAds();
         }
-
-        loadAds();
     </script>
 </body>
 </html>
