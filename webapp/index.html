@@ -305,13 +305,9 @@
             selectedAd = ad;
             document.getElementById('modalTitle').innerText = `${ad.prop_type === 'Houses' ? '🏠 Дом' : '🏢 Квартира'} №${ad.ad_num}`;
             
-            // Загрузка фото в модальное окно
+            // Загрузка фото через эндпоинт FastAPI из таблицы ad_media
             const mediaContainer = document.getElementById('modalMedia');
-            if (ad.photo_url) {
-                mediaContainer.innerHTML = `<img src="${ad.photo_url}" alt="Фото объекта">`;
-            } else {
-                mediaContainer.innerHTML = `<span class="no-photo">📸 Фото отсутствует</span>`;
-            }
+            mediaContainer.innerHTML = `<img src="/api/media/${ad.ad_num}" alt="Фото объекта" onerror="this.parentElement.innerHTML='<span class=\'no-photo\'>📸 Фото отсутствует</span>'">`;
 
             const priceFormatted = Number(ad.price).toLocaleString('ru-RU');
             const categoryText = ad.category === 'Rent' ? 'Аренда' : 'Продажа';

@@ -5,7 +5,7 @@ from aiogram.filters import CommandStart
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 import uvicorn
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 import database as db
 
 # Настройка логирования
@@ -58,6 +58,32 @@ async def serve_mini_app():
             return f.read()
     return "<h3>Файл webapp/index.html не найден на сервере!</h3>"
 
+# Эндпоинт для отдачи медиафайлов из таблицы ad_media
+@app.get("/api/media/{ad_num}")
+async def get_ad_media(ad_num: str):
+    try:
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT file_name, file_data FROM ad_media WHERE ad_number = %s",
+            (ad_num,)
+        )
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        for file_name, file_data in rows:
+            ext = file_name.lower().split('.')[-1]
+            if ext in ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif']:
+                content_type = f"image/{ext}"
+                if ext == 'jpg':
+                    content_type = "image/jpeg"
+                return Response(content=bytes(file_data), media_type=content_type)
+        
+        return Response(status_code=404)
+    except Exception as e:
+        return Response(status_code=500, content=str(e))
+
 # API для отдачи объектов недвижимости в мини-приложение
 @app.get("/api/ads")
 async def get_ads(category: str = "Rent", prop_type: str = "all"):
@@ -74,8 +100,7 @@ async def get_ads(category: str = "Rent", prop_type: str = "all"):
             "area": ad[6],
             "floor": ad[7],
             "floors_total": ad[8],
-            "price": ad[9],
-            "photo_url": ad[10] if len(ad) > 10 else None  # Ссылка на фото (индекс зависит от структуры БД)
+            "price": ad[9]
         })
     return result
 
@@ -83,16 +108,12 @@ async def get_ads(category: str = "Rent", prop_type: str = "all"):
 # --- ЗАПУСК ВСЕЙ СИСТЕМЫ ---
 
 async def main():
-    # Получаем порт от хостинга FadeHost (или используем 8080 по умолчанию)
     port = int(os.getenv("PORT", 8080))
     
-    logging.basicConfig(level=logging.INFO)
     logging.info("🤖 Запуск Telegram-бота и FastAPI сервера...")
 
-    # Запускаем поллинг бота в фоновой задаче
     bot_task = asyncio.create_task(dp.start_polling(bot))
 
-    # Запускаем веб-сервер uvicorn для Mini App
     config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info")
     server = uvicorn.Server(config)
     
