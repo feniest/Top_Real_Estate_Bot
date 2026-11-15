@@ -65,20 +65,29 @@ async def get_ads(category: str = "Rent", prop_type: str = "all", rooms: str = "
     result = []
     
     for ad in raw_ads:
-        # ad[3] — это количество комнат в базе данных
-        ad_rooms = str(ad[3]) if ad[3] is not None else ""
+        # ad[3] — это количество комнат в базе данных (может быть числом или строкой)
+        db_rooms = ad[3]
         
-        # Фильтрация по комнатам на бэкенде
+        # Фильтрация по комнатам
         if rooms != "all":
+            if db_rooms is None:
+                continue
+                
+            # Приводим к строке для точного сравнения
+            db_rooms_str = str(db_rooms).strip()
+            
             if rooms == "5+":
-                # Если выбрали 5+, то комнаты должны быть >= 5
+                # Пытаемся извлечь число из базы (на случай если там написано "5", "6" или "5+")
                 try:
-                    if int(ad_rooms) < 5:
+                    # Извлекаем первую цифру из строки комнаты (например, из "5+" берем 5)
+                    numeric_rooms = int(''.join(filter(str.isdigit, db_rooms_str)))
+                    if numeric_rooms < 5:
                         continue
                 except ValueError:
                     continue
             else:
-                if ad_rooms != rooms:
+                # Для 1, 2, 3, 4 комнат проверяем точное совпадение
+                if db_rooms_str != rooms:
                     continue
 
         result.append({
