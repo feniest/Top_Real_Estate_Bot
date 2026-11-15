@@ -42,13 +42,13 @@
         .filter-btn {
             background: var(--card-bg);
             border: 1px solid #d1d1d6;
-            padding: 5px 8px; /* Уменьшили внутренние отступы */
+            padding: 5px 8px;
             border-radius: 12px;
-            font-size: 11px; /* Чуть уменьшили шрифт, чтобы все поместились */
+            font-size: 11px;
             cursor: pointer;
             white-space: nowrap;
             color: var(--text-color);
-            flex: 1; /* Равномерно распределяем ширину кнопок в ряду */
+            flex: 1;
             text-align: center;
             transition: all 0.2s;
         }
@@ -131,6 +131,7 @@
         let currentCategory = 'Rent';
         let currentPropType = 'all';
         let currentRooms = 'all';
+        let allAdsCache = []; // Кэш всех загруженных объявлений
 
         const tg = window.Telegram.WebApp;
         tg.expand();
@@ -140,36 +141,60 @@
             catalog.innerHTML = '<div class="loading">Загрузка...</div>';
 
             try {
-                const response = await fetch(`/api/ads?category=${currentCategory}&prop_type=${currentPropType}&rooms=${currentRooms}`);
-                const ads = await response.json();
+                // Запрашиваем с бэкенда только категорию и тип
+                const response = await fetch(`/api/ads?category=${currentCategory}&prop_type=${currentPropType}`);
+                allAdsCache = await response.json();
                 
-                catalog.innerHTML = '';
-
-                if (ads.length === 0) {
-                    catalog.innerHTML = '<div class="loading">📭 По вашему запросу объектов не найдено</div>';
-                    return;
-                }
-
-                ads.forEach(ad => {
-                    const card = document.createElement('div');
-                    card.className = 'card';
-                    const priceFormatted = Number(ad.price).toLocaleString('ru-RU');
-                    const typeIcon = ad.prop_type === 'Houses' ? '🏠 Дом' : '🏢 Квартира';
-
-                    card.innerHTML = `
-                        <div class="card-body">
-                            <div class="price">${priceFormatted} $</div>
-                            <div class="title">${typeIcon} №${ad.ad_num}</div>
-                            <div class="details">📍 ${ad.district || 'Район не указан'}</div>
-                            <div class="details">🚪 Комнат: ${ad.rooms || '—'}</div>
-                        </div>
-                    `;
-                    catalog.appendChild(card);
-                });
+                renderAds();
             } catch (err) {
                 console.error(err);
                 catalog.innerHTML = '<div class="loading">Ошибка загрузки данных</div>';
             }
+        }
+
+        function renderAds() {
+            const catalog = document.getElementById('catalog');
+            catalog.innerHTML = '';
+
+            // Фильтруем массив прямо в браузере
+            const filteredAds = allAdsCache.filter(ad => {
+                if (currentRooms === 'all') return true;
+                if (ad.rooms === null || ad.rooms === undefined) return false;
+
+                const roomsStr = String(ad.rooms).trim();
+                
+                if (currentRooms === '5+') {
+                    // Извлекаем первую цифру из строки комнаты (например, из "5" или "5+")
+                    const match = roomsStr.match(/\d+/);
+                    if (!match) return false;
+                    return parseInt(match[0], 10) >= 5;
+                } else {
+                    // Точное совпадение для 1, 2, 3, 4
+                    return roomsStr.startsWith(currentRooms);
+                }
+            });
+
+            if (filteredAds.length === 0) {
+                catalog.innerHTML = '<div class="loading">📭 По вашему запросу объектов не найдено</div>';
+                return;
+            }
+
+            filteredAds.forEach(ad => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                const priceFormatted = Number(ad.price).toLocaleString('ru-RU');
+                const typeIcon = ad.prop_type === 'Houses' ? '🏠 Дом' : '🏢 Квартира';
+
+                card.innerHTML = `
+                    <div class="card-body">
+                        <div class="price">${priceFormatted} $</div>
+                        <div class="title">${typeIcon} №${ad.ad_num}</div>
+                        <div class="details">📍 ${ad.district || 'Район не указан'}</div>
+                        <div class="details">🚪 Комнат: ${ad.rooms || '—'}</div>
+                    </div>
+                `;
+                catalog.appendChild(card);
+            });
         }
 
         function setCategory(cat, btn) {
@@ -195,7 +220,7 @@
                 btn.classList.add('active');
                 currentRooms = rooms;
             }
-            loadAds();
+            renderAds(); // Перерисовываем мгновенно без повторного запроса к серверу
         }
 
         loadAds();

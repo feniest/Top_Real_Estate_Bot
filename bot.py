@@ -60,36 +60,11 @@ async def serve_mini_app():
 
 # API для отдачи объектов недвижимости в мини-приложение
 @app.get("/api/ads")
-async def get_ads(category: str = "Rent", prop_type: str = "all", rooms: str = "all"):
+async def get_ads(category: str = "Rent", prop_type: str = "all"):
     raw_ads = db.get_filtered_ads(category=category, prop_type=prop_type)
     result = []
     
     for ad in raw_ads:
-        # ad[3] — это количество комнат в базе данных (может быть числом или строкой)
-        db_rooms = ad[3]
-        
-        # Фильтрация по комнатам
-        if rooms != "all":
-            if db_rooms is None:
-                continue
-                
-            # Приводим к строке для точного сравнения
-            db_rooms_str = str(db_rooms).strip()
-            
-            if rooms == "5+":
-                # Пытаемся извлечь число из базы (на случай если там написано "5", "6" или "5+")
-                try:
-                    # Извлекаем первую цифру из строки комнаты (например, из "5+" берем 5)
-                    numeric_rooms = int(''.join(filter(str.isdigit, db_rooms_str)))
-                    if numeric_rooms < 5:
-                        continue
-                except ValueError:
-                    continue
-            else:
-                # Для 1, 2, 3, 4 комнат проверяем точное совпадение
-                if db_rooms_str != rooms:
-                    continue
-
         result.append({
             "ad_num": ad[0],
             "category": ad[1],
