@@ -3,7 +3,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 
 def get_connection():
-    """Подключение к базе данных PostgreSQL с поддержкой переменных окружения хостинга"""
+    """Подключение к базе данных PostgreSQL"""
     return psycopg2.connect(
         dbname=os.getenv("DB_NAME", "postgres"),
         user=os.getenv("DB_USER", "postgres"),
@@ -22,7 +22,7 @@ def get_market_statistics():
                 category,
                 COUNT(*) as total_count,
                 MIN(price) as min_price,
-                ROUND(AVG(price), 0) as avg_price
+                ROUND(AVG(price)::numeric, 0) as avg_price
             FROM ads
             GROUP BY category;
         """)
