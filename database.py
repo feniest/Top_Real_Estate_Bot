@@ -14,9 +14,9 @@ def get_connection():
     return psycopg2.connect(**DB_CONFIG)
 
 def get_market_statistics():
-    """Возвращает агрегированную статистику по категориям (Rent / Sales) для главного экрана"""
-    conn = get_connection()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    """Возвращает агрегированную статистику по категориям (Аренда / Продажа)"""
+    conn = db.get_connection() # Используйте вашу функцию подключения к БД
+    cursor = conn.cursor()
     try:
         cursor.execute("""
             SELECT 
@@ -30,15 +30,24 @@ def get_market_statistics():
         rows = cursor.fetchall()
         stats = {}
         for row in rows:
-            cat = row.get('category')
-            stats[cat] = {
-                "count": row.get('total_count', 0),
-                "min_price": row.get('min_price', 0),
-                "avg_price": row.get('avg_price', 0)
-            }
+            # Поддерживаем и словарь, и кортеж в зависимости от настроек курсора
+            if isinstance(row, dict):
+                cat = row.get('category')
+                stats[cat] = {
+                    "count": row.get('total_count', 0),
+                    "min_price": row.get('min_price', 0),
+                    "avg_price": row.get('avg_price', 0)
+                }
+            else:
+                cat, count, min_p, avg_p = row
+                stats[cat] = {
+                    "count": count,
+                    "min_price": min_p,
+                    "avg_price": avg_p
+                }
         return stats
     except Exception as e:
-        print(f"⚠️ Ошибка получения статистики рынка: {e}")
+        print(f"⚠️ Ошибка получения статистики: {e}")
         return {}
     finally:
         cursor.close()

@@ -13,10 +13,10 @@ if os.path.exists(os.path.join(BASE_DIR, "webapp")):
     app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "webapp")), name="static")
 
 @app.get("/api/stats")
-def api_get_stats():
-    """Эндпоинт для получения легкой статистики рынка"""
+def get_stats():
     try:
-        return db.get_market_statistics()
+        stats = db.get_market_statistics()
+        return stats
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

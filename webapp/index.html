@@ -23,7 +23,7 @@
             margin-bottom: 12px;
             font-size: 20px;
         }
-        /* Стили для виджетов статистики */
+        /* Стили для виджетов статистики (навигационного хаба) */
         .stats-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -89,7 +89,7 @@
         </div>
     </div>
 
-    <!-- Экран каталога объявлений (открывается по клику) -->
+    <!-- Экран каталога объявлений (открывается по клику на карточку статистики) -->
     <div id="catalogScreen">
         <button class="back-btn" onclick="showDashboard()">← Назад к обзору</button>
         <h2 id="catalogTitle">Каталог</h2>
@@ -99,10 +99,11 @@
     <script>
         let currentCategory = 'Rent';
 
-        // Загрузка статистики при старте приложения
+        // Загрузка статистики рынка при старте приложения
         async function loadMarketStats() {
             try {
                 const response = await fetch('/api/stats');
+                if (!response.ok) throw new Error('Ошибка сервера');
                 const stats = await response.json();
 
                 const rent = stats['Rent'] || { count: 0, min_price: 0 };
@@ -118,6 +119,8 @@
                 `;
             } catch (e) {
                 console.error("Ошибка загрузки статистики:", e);
+                document.getElementById('statRentInfo').innerText = 'Нет данных';
+                document.getElementById('statSalesInfo').innerText = 'Нет данных';
             }
         }
 
@@ -144,9 +147,10 @@
             container.innerHTML = 'Загрузка...';
             try {
                 const response = await fetch(`/api/ads?category=${currentCategory}&prop_type=all`);
+                if (!response.ok) throw new Error('Ошибка загрузки каталога');
                 const ads = await response.json();
                 
-                if (ads.length === 0) {
+                if (!Array.isArray(ads) || ads.length === 0) {
                     container.innerHTML = '<div>В этом разделе пока нет объектов.</div>';
                     return;
                 }
@@ -154,7 +158,7 @@
                 container.innerHTML = ads.map(ad => `
                     <div class="ad-card">
                         <h3>${ad.title || 'Объект недвижимости'}</h3>
-                        <p>Цена: <b>${Number(ad.price).toLocaleString('ru-RU')} $</b></p>
+                        <p>Цена: <b>${Number(ad.price || 0).toLocaleString('ru-RU')} $</b></p>
                     </div>
                 `).join('');
             } catch (err) {
@@ -163,7 +167,7 @@
             }
         }
 
-        // Инициализация при старте
+        // Инициализация при старте страницы
         loadMarketStats();
     </script>
 </body>
