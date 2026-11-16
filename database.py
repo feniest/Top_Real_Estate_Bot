@@ -82,7 +82,7 @@ def get_filtered_ads(category: str = "all", prop_type: str = "all", district: st
 def get_ad_media_files(ad_number: str):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT file_name, file_data, mime_type FROM ad_media WHERE ad_number = %s ORDER BY id ASC", (str(ad_number),))
+    cursor.execute("SELECT file_name, file_data FROM ad_media WHERE ad_number = %s ORDER BY id ASC", (str(ad_number),))
     files = cursor.fetchall()
     cursor.close()
     conn.close()
