@@ -374,60 +374,44 @@
         }
 
         async function loadAds() {
-            const catalog = document.getElementById('catalog');
-            catalog.innerHTML = '<div class="loading">Загрузка...</div>';
+    const catalog = document.getElementById('catalog');
+    
+    // 1. ПЕРВЫЙ ШАГ: Проверяем, есть ли сохраненные объекты в памяти телефона
+    const cacheKey = `ads_cache_${currentCategory}_${currentPropType}`;
+    const cachedData = sessionStorage.getItem(cacheKey);
 
-            try {
-                const response = await fetch(`/api/ads?category=${currentCategory}&prop_type=${currentPropType}`);
-                allAdsCache = await response.json();
-                renderAds();
-            } catch (err) {
-                console.error(err);
-                catalog.innerHTML = '<div class="loading">Ошибка загрузки данных</div>';
-            }
+    if (cachedData) {
+        try {
+            allAdsCache = JSON.parse(cachedData);
+            renderAds(); // Мгновенно отрисовываем каталог из кеша!
+        } catch (e) {
+            console.error("Ошибка чтения кеша", e);
         }
+    } else {
+        // Если кеша нет совсем (самый первый запуск), показываем загрузку
+        catalog.innerHTML = '<div class="loading">Загрузка каталога...</div>';
+    }
 
-        function renderAds() {
-            const catalog = document.getElementById('catalog');
-            catalog.innerHTML = '';
-
-            const filteredAds = allAdsCache.filter(ad => {
-                if (currentRooms === 'all') return true;
-                if (ad.rooms === null || ad.rooms === undefined) return false;
-                const roomsStr = String(ad.rooms).trim();
-                if (currentRooms === '5+') {
-                    const match = roomsStr.match(/\d+/);
-                    if (!match) return false;
-                    return parseInt(match[0], 10) >= 5;
-                } else {
-                    return roomsStr.startsWith(currentRooms);
-                }
-            });
-
-            if (filteredAds.length === 0) {
-                catalog.innerHTML = '<div class="loading">📭 По вашему запросу объектов не найдено</div>';
-                return;
-            }
-
-            filteredAds.forEach(ad => {
-                const card = document.createElement('div');
-                card.className = 'card';
-                card.onclick = () => openDetailScreen(ad);
-
-                const priceFormatted = Number(ad.price).toLocaleString('ru-RU');
-                const typeIcon = ad.prop_type === 'Houses' ? '🏠 Дом' : '🏢 Квартира';
-
-                card.innerHTML = `
-                    <div class="card-body">
-                        <div class="price">${priceFormatted} $</div>
-                        <div class="title">${typeIcon} №${ad.ad_num}</div>
-                        <div class="details">📍 ${ad.district || 'Район не указан'}</div>
-                        <div class="details">🚪 Комнат: ${ad.rooms || '—'}</div>
-                    </div>
-                `;
-                catalog.appendChild(card);
-            });
+    // 2. ВТОРОЙ ШАГ: Параллельно запрашиваем свежие данные с сервера в фоне
+    try {
+        const response = await fetch(`/api/ads?category=${currentCategory}&prop_type=${currentPropType}`);
+        const freshData = await response.json();
+        
+        allAdsCache = freshData;
+        
+        // Сохраняем свежие данные в sessionStorage телефона
+        sessionStorage.setItem(cacheKey, JSON.stringify(freshData));
+        
+        // Перерисовываем каталог на случай, если данные на сервере изменились
+        renderAds();
+    } catch (err) {
+        console.error("Ошибка фонового обновления данных:", err);
+        // Если интернета нет, а в кеше ничего не было — показываем ошибку
+        if (!allAdsCache || allAdsCache.length === 0) {
+            catalog.innerHTML = '<div class="loading">Ошибка загрузки данных</div>';
         }
+    }
+}
 
         async function openDetailScreen(ad) {
             selectedAd = ad;
