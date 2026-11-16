@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from aiogram import Bot, Dispatcher, types, F
 import database as db
-import catalog
+from handlers import catalog
 from config import BOT_TOKEN, REALTOR_ID
 
 app = FastAPI(title="Top Real Estate Mini App")
