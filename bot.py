@@ -5,7 +5,7 @@ import os
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
-from aiogram import Bot, Dispatcher, types, F
+from aiogram import Bot, Dispatcher, types, F, Router
 import database as db
 from handlers import catalog
 from config import BOT_TOKEN, REALTOR_ID
