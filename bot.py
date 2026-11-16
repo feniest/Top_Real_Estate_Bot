@@ -3,24 +3,100 @@ import json
 import asyncio
 import logging
 import sys
-from fastapi import FastAPI
+import psycopg2
+import psycopg2.extras
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 from aiogram import Bot, Dispatcher, types, F, Router
 
-# 1. Инициализация FastAPI
+# --- 1. НАСТРОЙКА БАЗЫ ДАННЫХ POSTGRESQL ---
+# Хостинг FadeHost автоматически предоставляет DATABASE_URL
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+def get_db_connection():
+    if not DATABASE_URL:
+        raise RuntimeError("Не найдена переменная окружения DATABASE_URL!")
+    return psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+
+
+# --- 2. НАСТРОЙКА FASTAPI И ВЕБ-СЕРВЕРА ---
 app = FastAPI()
 
-# Подключаем папку webapp со статическими файлами (картинки, стили, скрипты)
+# Подключаем статические файлы и корневую страницу мини-приложения
 app.mount("/static", StaticFiles(directory="webapp"), name="static")
 
-# Отдаем файл index.html при открытии главного адреса или мини-приложения
 @app.get("/")
 def serve_webapp():
     return FileResponse("webapp/index.html")
 
-# 2. Настройка бота и роутера для приема заявок
+# API для получения списка объявлений (каталог с фильтрами)
+@app.get("/api/ads")
+def get_ads(category: str = "Rent", prop_type: str = "all"):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        query = "SELECT * FROM ads WHERE category = %s"
+        params = [category]
+        
+        if prop_type != "all":
+            query += " AND prop_type = %s"
+            params.append(prop_type)
+            
+        cursor.execute(query, params)
+        ads = cursor.fetchall()
+        
+        cursor.close()
+        conn.close()
+        return ads
+    except Exception as e:
+        print(f"Ошибка при получении объявлений: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# API для получения списка медиафайлов (фото/видео) конкретного объекта
+@app.get("/api/media-list/{ad_num}")
+def get_media_list(ad_num: int):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT id, type FROM media WHERE ad_num = %s ORDER BY id ASC", (ad_num,))
+        media = cursor.fetchall()
+        
+        cursor.close()
+        conn.close()
+        return media
+    except Exception as e:
+        print(f"Ошибка при получении списка медиа: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# API для скачивания конкретного файла медиа из базы
+@app.get("/api/media-file/{media_id}")
+def get_media_file(media_id: int):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT file_data, mime_type FROM media WHERE id = %s", (media_id,))
+        row = cursor.fetchone()
+        
+        cursor.close()
+        conn.close()
+        
+        if not row:
+            raise HTTPException(status_code=404, detail="Файл не найден")
+            
+        # Возвращаем бинарные данные файла с правильным MIME-типом
+        from fastapi.responses import Response
+        return Response(content=row['file_data'], media_type=row['mime_type'])
+    except Exception as e:
+        print(f"Ошибка при отдаче медиафайла: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- 3. НАСТРОЙКА TELEGRAM-БОТА И РОУТЕРА ЗАЯВОК ---
 router = Router()
 
 REALTOR_ID_STR = os.getenv("REALTOR_ID") or os.getenv("ADMIN_ID")
@@ -64,6 +140,7 @@ async def handle_web_app_data(message: types.Message):
         await message.answer("❌ Произошла ошибка при отправке заявки. Попробуйте еще раз.")
 
 
+# --- 4. ГЛАВНАЯ ТОЧКА ЗАПУСКА ---
 async def main():
     bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not bot_token:
@@ -73,11 +150,11 @@ async def main():
     dp = Dispatcher()
     dp.include_router(router)
 
-    # Запускаем телеграм-бота в фоновом режиме
+    # Запускаем телеграм-бота в фоне
     asyncio.create_task(dp.start_polling(bot))
     print("Telegram бот запущен в фоновом режиме...")
 
-    # Запускаем веб-сервер FastAPI на порту хостинга
+    # Запускаем FastAPI сервер на порту хостинга
     port = int(os.getenv("PORT", 8080))
     config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info")
     server = uvicorn.Server(config)
