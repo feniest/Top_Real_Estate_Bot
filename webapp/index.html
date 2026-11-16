@@ -151,7 +151,7 @@
             color: #8e8e93;
         }
 
-        /* Экран деталей: шапка и медиа закреплены, скроллится только карточка с текстом */
+        /* Экран деталей */
         #detailScreen {
             display: none;
             flex-direction: column;
@@ -297,7 +297,7 @@
 </head>
 <body>
 
-    <!-- Приветственное окно при запуске Mini App -->
+    <!-- Приветственное окно -->
     <div id="welcomeScreen">
         <div class="welcome-card">
             <h2>🏢 Добро пожаловать!</h2>
@@ -337,7 +337,7 @@
         </div>
     </div>
 
-    <!-- Встроенный экран с деталями объекта -->
+    <!-- Экран деталей объекта -->
     <div id="detailScreen">
         <div class="detail-header-fixed">
             <div class="detail-header-row">
@@ -374,52 +374,44 @@
         }
 
         async function loadAds() {
-    const catalog = document.getElementById('catalog');
-    
-    // 1. ПЕРВЫЙ ШАГ: Проверяем, есть ли сохраненные объекты в памяти телефона
-    const cacheKey = `ads_cache_${currentCategory}_${currentPropType}`;
-    const cachedData = sessionStorage.getItem(cacheKey);
-
-    if (cachedData) {
-        try {
-            allAdsCache = JSON.parse(cachedData);
-            renderAds(); // Мгновенно отрисовываем каталог из кеша!
-        } catch (e) {
-            console.error("Ошибка чтения кеша", e);
-        }
-    } else {
-        // Если кеша нет совсем (самый первый запуск), показываем загрузку
-        catalog.innerHTML = '<div class="loading">Загрузка каталога...</div>';
-    }
-
-    // 2. ВТОРОЙ ШАГ: Параллельно запрашиваем свежие данные с сервера в фоне
-    try {
-        const response = await fetch(`/api/ads?category=${currentCategory}&prop_type=${currentPropType}`);
-        const freshData = await response.json();
-        
-        allAdsCache = freshData;
-        
-        // Сохраняем свежие данные в sessionStorage телефона
-        sessionStorage.setItem(cacheKey, JSON.stringify(freshData));
-        
-        // Перерисовываем каталог на случай, если данные на сервере изменились
-        renderAds();
-    } catch (err) {
-        console.error("Ошибка фонового обновления данных:", err);
-        // Если интернета нет, а в кеше ничего не было — показываем ошибку
-        if (!allAdsCache || allAdsCache.length === 0) {
-            catalog.innerHTML = '<div class="loading">Ошибка загрузки данных</div>';
-        }
-    }
-}
-
-		function renderAds() {
             const catalog = document.getElementById('catalog');
-            
-            // Фильтруем данные по комнатам на фронтенде, если выбран фильтр
+            const cacheKey = `ads_cache_${currentCategory}_${currentPropType}`;
+            const cachedData = sessionStorage.getItem(cacheKey);
+
+            if (cachedData) {
+                try {
+                    allAdsCache = JSON.parse(cachedData);
+                    renderAds();
+                } catch (e) {
+                    console.error("Ошибка чтения кеша", e);
+                }
+            } else {
+                catalog.innerHTML = '<div class="loading">Загрузка каталога...</div>';
+            }
+
+            try {
+                const response = await fetch(`/api/ads?category=${currentCategory}&prop_type=${currentPropType}`);
+                const freshData = await response.json();
+                allAdsCache = freshData;
+                sessionStorage.setItem(cacheKey, JSON.stringify(freshData));
+                renderAds();
+            } catch (err) {
+                console.error("Ошибка фонового обновления данных:", err);
+                if (!allAdsCache || allAdsCache.length === 0) {
+                    catalog.innerHTML = '<div class="loading">Ошибка загрузки данных</div>';
+                }
+            }
+        }
+
+        function renderAds() {
+            const catalog = document.getElementById('catalog');
             let filtered = allAdsCache;
             if (currentRooms !== 'all') {
-                filtered = allAdsCache.filter(ad => String(ad.rooms) === String(currentRooms));
+                if (currentRooms === '5+') {
+                    filtered = allAdsCache.filter(ad => Number(ad.rooms) >= 5);
+                } else {
+                    filtered = allAdsCache.filter(ad => String(ad.rooms) === String(currentRooms));
+                }
             }
 
             if (!filtered || filtered.length === 0) {
@@ -427,14 +419,13 @@
                 return;
             }
 
-            // Генерируем карточки для каталога
             catalog.innerHTML = filtered.map(ad => {
                 const priceFormatted = Number(ad.price).toLocaleString('ru-RU');
                 const propTitle = ad.prop_type === 'Houses' ? '🏠 Дом' : '🏢 Квартира';
                 const detailsText = `${ad.rooms ? ad.rooms + '-комн., ' : ''}${ad.area ? ad.area + ' м²' : ''}`;
                 
                 return `
-                    <div class="card" onclick='openDetailScreen(${JSON.stringify(ad)})'>
+                    <div class="card" onclick='openDetailScreen(${JSON.stringify(ad).replace(/'/g, "&#39;")})'>
                         <div class="card-body">
                             <div class="price">${priceFormatted} $</div>
                             <div class="title">${propTitle} №${ad.ad_num}</div>
@@ -448,7 +439,6 @@
 
         async function openDetailScreen(ad) {
             selectedAd = ad;
-            
             document.getElementById('catalogScreen').style.display = 'none';
             document.getElementById('detailScreen').classList.add('active');
 
@@ -480,6 +470,18 @@
             }
         }
 
+        function preloadNextMedia() {
+            if (!currentMediaList || currentMediaList.length <= 1) return;
+            const nextIdx = currentMediaIndex + 1;
+            if (nextIdx < currentMediaList.length) {
+                const nextItem = currentMediaList[nextIdx];
+                if (nextItem.type === 'photo') {
+                    const img = new Image();
+                    img.src = `/api/media-file/${nextItem.id}`;
+                }
+            }
+        }
+
         function renderMediaViewer() {
             const mediaContainer = document.getElementById('detailMedia');
             if (!currentMediaList || currentMediaList.length === 0) {
@@ -506,6 +508,7 @@
             }
 
             mediaContainer.innerHTML = mediaHtml;
+            preloadNextMedia();
         }
 
         function prevMedia(e) {
