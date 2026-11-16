@@ -3,13 +3,20 @@ import json
 import asyncio
 import logging
 import sys
+from fastapi import FastAPI
+import uvicorn
 from aiogram import Bot, Dispatcher, types, F, Router
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# Инициализируем роутер для обработки событий
+# 1. Инициализация FastAPI для веб-сервера (чтобы хостинг видел открытый порт)
+app = FastAPI()
+
+@app.get("/")
+def index():
+    return {"status": "Bot and WebApp are running!"}
+
+# 2. Настройка бота и роутера
 router = Router()
 
-# Читаем ID риелтора (менеджера) из переменных окружения
 REALTOR_ID_STR = os.getenv("REALTOR_ID") or os.getenv("ADMIN_ID")
 if not REALTOR_ID_STR:
     raise ValueError("Не найден REALTOR_ID в переменных окружения!")
@@ -22,12 +29,10 @@ async def handle_web_app_data(message: types.Message):
         if data.get("action") == "contact":
             ad_num = data.get("ad_num")
             
-            # Данные о клиенте из Telegram
             client_name = message.from_user.full_name
             client_username = f"@{message.from_user.username}" if message.from_user.username else "скрыт"
             client_id = message.from_user.id
             
-            # Формируем текст уведомления для риелтора
             realtor_text = (
                 f"🚨 **Новая заявка из мини-приложения!**\n\n"
                 f"🏠 Объект №: **{ad_num}**\n"
@@ -35,12 +40,10 @@ async def handle_web_app_data(message: types.Message):
                 f"🆔 Telegram ID: `{client_id}`"
             )
 
-            # Инлайн-кнопка для прямой связи с клиентом
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="💬 Написать клиенту", url=f"tg://user?id={client_id}")]
+            keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+                [types.InlineKeyboardButton(text="💬 Написать клиенту", url=f"tg://user?id={client_id}")]
             ])
 
-            # Отправка заявки риелтору
             await message.bot.send_message(
                 chat_id=REALTOR_ID,
                 text=realtor_text,
@@ -48,7 +51,6 @@ async def handle_web_app_data(message: types.Message):
                 reply_markup=keyboard
             )
 
-            # Подтверждение пользователю в чат с ботом
             await message.answer("✅ Ваша заявка успешно отправлена нашему риелтору! Скоро с вами свяжутся.")
             
     except Exception as e:
@@ -57,21 +59,24 @@ async def handle_web_app_data(message: types.Message):
 
 
 async def main():
-    # Получаем токен бота из переменных окружения на хостинге
     bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not bot_token:
         raise ValueError("Не найден TELEGRAM_BOT_TOKEN в переменных окружения!")
 
     bot = Bot(token=bot_token)
     dp = Dispatcher()
-    
-    # Подключаем наш роутер
     dp.include_router(router)
 
-    # Убираем старые апдейты при запуске и запускаем поллинг
-    print("Бот запущен и ожидает сообщения...")
-    await bot.delete_webhook(drop_pending_updates=True)
-    await dp.start_polling(bot)
+    # Запускаем телеграм-бота в фоновом режиме
+    asyncio.create_task(dp.start_polling(bot))
+    print("Telegram бот запущен в фоновом режиме...")
+
+    # Запускаем веб-сервер FastAPI на порту от хостинга (по умолчанию 8080)
+    port = int(os.getenv("PORT", 8080))
+    config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info")
+    server = uvicorn.Server(config)
+    
+    await server.serve()
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
