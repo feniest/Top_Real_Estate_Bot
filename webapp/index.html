@@ -3,568 +3,168 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Каталог недвижимости</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <title>Real Estate Mini App</title>
     <style>
         :root {
-            --bg-color: var(--tg-theme-bg-color, #f4f4f5);
-            --text-color: var(--tg-theme-text-color, #111);
-            --card-bg: var(--tg-theme-secondary-bg-color, #fff);
-            --button-color: var(--tg-theme-button-color, #2481cc);
-            --button-text: var(--tg-theme-button-text-color, #fff);
+            --bg-color: #f2f2f7;
+            --card-bg: #ffffff;
+            --text-color: #000000;
+            --hint-color: #8e8e93;
+            --button-color: #007aff;
         }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
-            padding: 12px;
-            box-sizing: border-box;
-        }
-
-        /* Приветственное модальное окно */
-        #welcomeScreen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.6);
-            z-index: 9999;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             padding: 16px;
-            box-sizing: border-box;
         }
-        .welcome-card {
-            background: var(--card-bg);
-            width: 100%;
-            max-width: 360px;
-            border-radius: 20px;
-            padding: 24px;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            text-align: center;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-        }
-        .welcome-card h2 {
-            margin: 0;
+        h2 {
+            margin-bottom: 12px;
             font-size: 20px;
-            color: var(--text-color);
         }
-        .welcome-card p {
-            margin: 0;
-            font-size: 14px;
-            color: #6b7280;
-            line-height: 1.4;
+        /* Стили для виджетов статистики */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
         }
-        .welcome-card ul {
-            text-align: left;
-            font-size: 13px;
-            color: #4b5563;
-            padding-left: 20px;
-            margin: 5px 0;
-        }
-
-        .filters {
-            position: sticky;
-            top: 0;
-            background: var(--bg-color);
-            padding: 8px 0 12px 0;
-            z-index: 100;
+        .stat-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 16px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
-        }
-        .filter-row {
-            display: flex;
             gap: 6px;
-            overflow-x: auto;
-            scrollbar-width: none;
-        }
-        .filter-row::-webkit-scrollbar {
-            display: none;
-        }
-        .filter-btn {
-            background: var(--card-bg);
-            border: 1px solid #d1d1d6;
-            padding: 5px 8px;
-            border-radius: 12px;
-            font-size: 11px;
             cursor: pointer;
-            white-space: nowrap;
-            color: var(--text-color);
-            flex: 1;
-            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+            border: 2px solid transparent;
             transition: all 0.2s;
         }
-        .filter-btn.active {
-            background: var(--button-color);
-            color: var(--button-text);
-            border-color: transparent;
+        .stat-card:active {
+            transform: scale(0.96);
+            border-color: var(--button-color);
         }
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-            gap: 12px;
-            margin-top: 8px;
-        }
-        .card {
-            background: var(--card-bg);
-            border-radius: 14px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-            display: flex;
-            flex-direction: column;
-            cursor: pointer;
-            transition: transform 0.1s;
-        }
-        .card:active {
-            transform: scale(0.97);
-        }
-        .card-body {
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-        .price {
-            font-weight: 700;
+        .stat-icon { font-size: 24px; }
+        .stat-title { font-size: 16px; font-weight: bold; }
+        .stat-details { font-size: 12px; color: var(--hint-color); line-height: 1.4; }
+        
+        /* Каталог и карточки */
+        #catalogScreen { display: none; }
+        .back-btn {
+            background: none;
+            border: none;
             color: var(--button-color);
             font-size: 16px;
+            cursor: pointer;
+            padding: 0;
+            margin-bottom: 12px;
         }
-        .title {
-            font-size: 13px;
-            font-weight: 600;
-        }
-        .details {
-            font-size: 12px;
-            color: #8e8e93;
-        }
-        .loading {
-            text-align: center;
-            grid-column: 1 / -1;
-            padding: 30px;
-            color: #8e8e93;
-        }
-
-        /* Экран деталей */
-        #detailScreen {
-            display: none;
-            flex-direction: column;
-            height: calc(100vh - 24px);
-            box-sizing: border-box;
-            overflow: hidden;
-        }
-        #detailScreen.active {
-            display: flex;
-        }
-
-        .detail-header-fixed {
-            position: sticky;
-            top: 0;
-            background: var(--bg-color);
-            z-index: 100;
-            padding-bottom: 8px;
-        }
-        .detail-header-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .back-btn {
+        .ad-card {
             background: var(--card-bg);
-            border: 1px solid #d1d1d6;
-            color: var(--text-color);
-            padding: 8px 12px;
+            padding: 12px;
             border-radius: 12px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-        .detail-title {
-            font-size: 18px;
-            font-weight: bold;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .media-container {
-            position: sticky;
-            top: 48px;
-            z-index: 90;
-            width: 100%;
-            height: 320px;
-            background: #000;
-            border-radius: 16px;
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            flex-shrink: 0;
-            margin-top: 8px;
-        }
-        .media-container img, .media-container video {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-        .media-nav-btn {
-            position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            background: rgba(0, 0, 0, 0.6);
-            color: #fff;
-            border: none;
-            border-radius: 50%;
-            width: 42px;
-            height: 42px;
-            font-size: 20px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
-        }
-        .media-prev { left: 12px; }
-        .media-next { right: 12px; }
-        .media-counter {
-            position: absolute;
-            bottom: 12px;
-            right: 14px;
-            background: rgba(0, 0, 0, 0.7);
-            color: #fff;
-            font-size: 12px;
-            padding: 4px 10px;
-            border-radius: 12px;
-        }
-        .no-photo {
-            color: #8e8e93;
-            font-size: 14px;
-        }
-
-        .scrollable-content {
-            flex-grow: 1;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            padding-top: 10px;
-            padding-bottom: 20px;
-            scrollbar-width: none;
-        }
-        .scrollable-content::-webkit-scrollbar {
-            display: none;
-        }
-
-        .info-card {
-            background: var(--card-bg);
-            border-radius: 16px;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-        }
-        .modal-info-row {
-            font-size: 15px;
-            display: flex;
-            justify-content: space-between;
-            border-bottom: 1px solid rgba(0,0,0,0.06);
-            padding: 8px 0;
-        }
-        .action-btn {
-            background: var(--button-color);
-            color: var(--button-text);
-            border: none;
-            padding: 14px;
-            border-radius: 14px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            text-align: center;
-            width: 100%;
-            box-sizing: border-box;
-            margin-top: 6px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
         }
     </style>
 </head>
 <body>
 
-    <!-- Приветственное окно -->
-    <div id="welcomeScreen">
-        <div class="welcome-card">
-            <h2>🏢 Добро пожаловать!</h2>
-            <p>Вы открыли каталог <b>РБД Управление недвижимостью</b>. Здесь собраны лучшие предложения по аренде и продаже квартир и домов.</p>
-            <ul>
-                <li>Удобные фильтры по комнатам</li>
-                <li>Просмотр фото и видео в высоком качестве</li>
-                <li>Быстрая связь с риелтором</li>
-            </ul>
-            <button class="action-btn" onclick="closeWelcome()">Перейти к каталогу 🚀</button>
+    <!-- Стартовый экран: Навигационный хаб (статистика рынка) -->
+    <div id="dashboardScreen">
+        <h2>Обзор рынка недвижимости</h2>
+        <div class="stats-grid">
+            <div class="stat-card" onclick="openCategory('Rent')">
+                <div class="stat-icon">🔑</div>
+                <div class="stat-title">Аренда</div>
+                <div id="statRentInfo" class="stat-details">Загрузка...</div>
+            </div>
+            <div class="stat-card" onclick="openCategory('Sales')">
+                <div class="stat-icon">💰</div>
+                <div class="stat-title">Продажа</div>
+                <div id="statSalesInfo" class="stat-details">Загрузка...</div>
+            </div>
         </div>
     </div>
 
-    <!-- Главный экран с фильтрами и каталогом -->
+    <!-- Экран каталога объявлений (открывается по клику) -->
     <div id="catalogScreen">
-        <div class="filters">
-            <div class="filter-row">
-                <button class="filter-btn active" onclick="setCategory('Rent', this)">🔑 Аренда</button>
-                <button class="filter-btn" onclick="setCategory('Sales', this)">💰 Продажа</button>
-            </div>
-            <div class="filter-row">
-                <button class="filter-btn active" onclick="setPropType('all', this)">Все типы</button>
-                <button class="filter-btn" onclick="setPropType('Apartments', this)">🏢 Квартиры</button>
-                <button class="filter-btn" onclick="setPropType('Houses', this)">🏠 Дома</button>
-            </div>
-            <div class="filter-row">
-                <button class="filter-btn" onclick="toggleRooms('1', this)">1 к.</button>
-                <button class="filter-btn" onclick="toggleRooms('2', this)">2 к.</button>
-                <button class="filter-btn" onclick="toggleRooms('3', this)">3 к.</button>
-                <button class="filter-btn" onclick="toggleRooms('4', this)">4 к.</button>
-                <button class="filter-btn" onclick="toggleRooms('5+', this)">5+ к.</button>
-            </div>
-        </div>
-
-        <div id="catalog" class="grid">
-            <div class="loading">Загрузка каталога...</div>
-        </div>
-    </div>
-
-    <!-- Экран деталей объекта -->
-    <div id="detailScreen">
-        <div class="detail-header-fixed">
-            <div class="detail-header-row">
-                <button class="back-btn" onclick="closeDetailScreen()">← Назад</button>
-                <div id="detailTitle" class="detail-title">Объект</div>
-            </div>
-        </div>
-        
-        <div id="detailMedia" class="media-container">
-            <span class="no-photo">⏳ Загрузка медиа...</span>
-        </div>
-
-        <div class="scrollable-content">
-            <div class="info-card" id="detailBody"></div>
-            <button class="action-btn" onclick="contactAgent()">Связаться с риелтором</button>
-        </div>
+        <button class="back-btn" onclick="showDashboard()">← Назад к обзору</button>
+        <h2 id="catalogTitle">Каталог</h2>
+        <div id="adsContainer">Загрузка объектов...</div>
     </div>
 
     <script>
         let currentCategory = 'Rent';
-        let currentPropType = 'all';
-        let currentRooms = 'all';
-        let allAdsCache = [];
-        let selectedAd = null;
-        let currentMediaList = [];
-        let currentMediaIndex = 0;
 
-        const tg = window.Telegram.WebApp;
-        tg.expand();
-
-        function closeWelcome() {
-            document.getElementById('welcomeScreen').style.display = 'none';
-            loadAds();
-        }
-
-        async function loadAds() {
-            const catalog = document.getElementById('catalog');
-            const cacheKey = `ads_cache_${currentCategory}_${currentPropType}`;
-            const cachedData = sessionStorage.getItem(cacheKey);
-
-            if (cachedData) {
-                try {
-                    allAdsCache = JSON.parse(cachedData);
-                    renderAds();
-                } catch (e) {
-                    console.error("Ошибка чтения кеша", e);
-                }
-            } else {
-                catalog.innerHTML = '<div class="loading">Загрузка каталога...</div>';
-            }
-
+        // Загрузка статистики при старте приложения
+        async function loadMarketStats() {
             try {
-                const response = await fetch(`/api/ads?category=${currentCategory}&prop_type=${currentPropType}`);
-                const freshData = await response.json();
-                allAdsCache = freshData;
-                sessionStorage.setItem(cacheKey, JSON.stringify(freshData));
-                renderAds();
-            } catch (err) {
-                console.error("Ошибка фонового обновления данных:", err);
-                if (!allAdsCache || allAdsCache.length === 0) {
-                    catalog.innerHTML = '<div class="loading">Ошибка загрузки данных</div>';
-                }
-            }
-        }
+                const response = await fetch('/api/stats');
+                const stats = await response.json();
 
-        function renderAds() {
-            const catalog = document.getElementById('catalog');
-            let filtered = allAdsCache;
-            if (currentRooms !== 'all') {
-                if (currentRooms === '5+') {
-                    filtered = allAdsCache.filter(ad => Number(ad.rooms) >= 5);
-                } else {
-                    filtered = allAdsCache.filter(ad => String(ad.rooms) === String(currentRooms));
-                }
-            }
-
-            if (!filtered || filtered.length === 0) {
-                catalog.innerHTML = '<div class="loading">Объекты не найдены</div>';
-                return;
-            }
-
-            catalog.innerHTML = filtered.map(ad => {
-                const priceFormatted = Number(ad.price).toLocaleString('ru-RU');
-                const propTitle = ad.prop_type === 'Houses' ? '🏠 Дом' : '🏢 Квартира';
-                const detailsText = `${ad.rooms ? ad.rooms + '-комн., ' : ''}${ad.area ? ad.area + ' м²' : ''}`;
-                
-                return `
-                    <div class="card" onclick='openDetailScreen(${JSON.stringify(ad).replace(/'/g, "&#39;")})'>
-                        <div class="card-body">
-                            <div class="price">${priceFormatted} $</div>
-                            <div class="title">${propTitle} №${ad.ad_num}</div>
-                            <div class="details">${detailsText}</div>
-                            <div class="details">${ad.district || ''}</div>
-                        </div>
-                    </div>
+                const rent = stats['Rent'] || { count: 0, min_price: 0 };
+                document.getElementById('statRentInfo').innerHTML = `
+                    Объектов: <b>${rent.count}</b><br>
+                    Цены от: <b>${Number(rent.min_price).toLocaleString('ru-RU')} $</b>
                 `;
-            }).join('');
-        }
 
-        async function openDetailScreen(ad) {
-            selectedAd = ad;
-            document.getElementById('catalogScreen').style.display = 'none';
-            document.getElementById('detailScreen').classList.add('active');
-
-            document.getElementById('detailTitle').innerText = `${ad.prop_type === 'Houses' ? '🏠 Дом' : '🏢 Квартира'} №${ad.ad_num}`;
-
-            const priceFormatted = Number(ad.price).toLocaleString('ru-RU');
-            const categoryText = ad.category === 'Rent' ? 'Аренда' : 'Продажа';
-
-            document.getElementById('detailBody').innerHTML = `
-                <div class="modal-info-row"><span>Цена:</span> <strong>${priceFormatted} $</strong></div>
-                <div class="modal-info-row"><span>Категория:</span> <strong>${categoryText}</strong></div>
-                <div class="modal-info-row"><span>Район:</span> <strong>${ad.district || '—'}</strong></div>
-                <div class="modal-info-row"><span>Ориентир:</span> <strong>${ad.landmark || '—'}</strong></div>
-                <div class="modal-info-row"><span>Комнат:</span> <strong>${ad.rooms || '—'}</strong></div>
-                <div class="modal-info-row"><span>Площадь:</span> <strong>${ad.area ? ad.area + ' м²' : '—'}</strong></div>
-                <div class="modal-info-row"><span>Этаж:</span> <strong>${ad.floor || '—'} / ${ad.floors_total || '—'}</strong></div>
-            `;
-
-            const mediaContainer = document.getElementById('detailMedia');
-            mediaContainer.innerHTML = `<span class="no-photo">⏳ Загрузка фото и видео...</span>`;
-
-            try {
-                const res = await fetch(`/api/media-list/${ad.ad_num}`);
-                currentMediaList = await res.json();
-                currentMediaIndex = 0;
-                renderMediaViewer();
+                const sales = stats['Sales'] || { count: 0, min_price: 0 };
+                document.getElementById('statSalesInfo').innerHTML = `
+                    Объектов: <b>${sales.count}</b><br>
+                    Цены от: <b>${Number(sales.min_price).toLocaleString('ru-RU')} $</b>
+                `;
             } catch (e) {
-                mediaContainer.innerHTML = `<span class="no-photo">📸 Медиафайлы отсутствуют</span>`;
+                console.error("Ошибка загрузки статистики:", e);
             }
         }
 
-        function preloadNextMedia() {
-            if (!currentMediaList || currentMediaList.length <= 1) return;
-            const nextIdx = currentMediaIndex + 1;
-            if (nextIdx < currentMediaList.length) {
-                const nextItem = currentMediaList[nextIdx];
-                if (nextItem.type === 'photo') {
-                    const img = new Image();
-                    img.src = `/api/media-file/${nextItem.id}`;
-                }
-            }
-        }
-
-        function renderMediaViewer() {
-            const mediaContainer = document.getElementById('detailMedia');
-            if (!currentMediaList || currentMediaList.length === 0) {
-                mediaContainer.innerHTML = `<span class="no-photo">📸 Фото и видео отсутствуют</span>`;
-                return;
-            }
-
-            const item = currentMediaList[currentMediaIndex];
-            const url = `/api/media-file/${item.id}`;
-            let mediaHtml = '';
-
-            if (item.type === 'video') {
-                mediaHtml = `<video src="${url}" controls playsinline></video>`;
-            } else {
-                mediaHtml = `<img src="${url}" alt="Медиа">`;
-            }
-
-            if (currentMediaList.length > 1) {
-                mediaHtml += `
-                    <button class="media-nav-btn media-prev" onclick="prevMedia(event)">❮</button>
-                    <button class="media-nav-btn media-next" onclick="nextMedia(event)">❯</button>
-                    <div class="media-counter">${currentMediaIndex + 1} / ${currentMediaList.length}</div>
-                `;
-            }
-
-            mediaContainer.innerHTML = mediaHtml;
-            preloadNextMedia();
-        }
-
-        function prevMedia(e) {
-            e.stopPropagation();
-            if (currentMediaIndex > 0) {
-                currentMediaIndex--;
-                renderMediaViewer();
-            }
-        }
-
-        function nextMedia(e) {
-            e.stopPropagation();
-            if (currentMediaIndex < currentMediaList.length - 1) {
-                currentMediaIndex++;
-                renderMediaViewer();
-            }
-        }
-
-        function closeDetailScreen() {
-            document.getElementById('detailScreen').classList.remove('active');
+        // Переход в конкретный раздел (Аренда или Продажа)
+        async function openCategory(category) {
+            currentCategory = category;
+            document.getElementById('dashboardScreen').style.display = 'none';
             document.getElementById('catalogScreen').style.display = 'block';
-            document.getElementById('detailMedia').innerHTML = '';
+            document.getElementById('catalogTitle').innerText = category === 'Rent' ? 'Аренда недвижимости' : 'Продажа недвижимости';
+            
+            await loadAds();
         }
 
-        function contactAgent() {
-            if (selectedAd) {
-                tg.sendData(JSON.stringify({ action: "contact", ad_num: selectedAd.ad_num }));
-                tg.close();
+        // Возврат на главный экран со статистикой
+        function showDashboard() {
+            document.getElementById('catalogScreen').style.display = 'none';
+            document.getElementById('dashboardScreen').style.display = 'block';
+            loadMarketStats(); // Обновляем цифры при возврате
+        }
+
+        // Загрузка объявлений выбранного раздела
+        async function loadAds() {
+            const container = document.getElementById('adsContainer');
+            container.innerHTML = 'Загрузка...';
+            try {
+                const response = await fetch(`/api/ads?category=${currentCategory}&prop_type=all`);
+                const ads = await response.json();
+                
+                if (ads.length === 0) {
+                    container.innerHTML = '<div>В этом разделе пока нет объектов.</div>';
+                    return;
+                }
+
+                container.innerHTML = ads.map(ad => `
+                    <div class="ad-card">
+                        <h3>${ad.title || 'Объект недвижимости'}</h3>
+                        <p>Цена: <b>${Number(ad.price).toLocaleString('ru-RU')} $</b></p>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error("Ошибка загрузки каталога:", err);
+                container.innerHTML = '<div>Ошибка загрузки данных.</div>';
             }
         }
 
-        function setCategory(cat, btn) {
-            currentCategory = cat;
-            document.querySelectorAll('.filter-row:nth-child(1) .filter-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            loadAds();
-        }
-
-        function setPropType(type, btn) {
-            currentPropType = type;
-            document.querySelectorAll('.filter-row:nth-child(2) .filter-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            loadAds();
-        }
-
-        function toggleRooms(rooms, btn) {
-            if (btn.classList.contains('active')) {
-                btn.classList.remove('active');
-                currentRooms = 'all';
-            } else {
-                document.querySelectorAll('.filter-row:nth-child(3) .filter-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                currentRooms = rooms;
-            }
-            renderAds();
-        }
+        // Инициализация при старте
+        loadMarketStats();
     </script>
 </body>
 </html>
