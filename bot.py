@@ -1,8 +1,12 @@
 import os
 import json
-from aiogram import types, F, Router
+import asyncio
+import logging
+import sys
+from aiogram import Bot, Dispatcher, types, F, Router
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+# Инициализируем роутер для обработки событий
 router = Router()
 
 # Читаем ID риелтора (менеджера) из переменных окружения
@@ -50,3 +54,25 @@ async def handle_web_app_data(message: types.Message):
     except Exception as e:
         print(f"Ошибка обработки Web App данных: {e}")
         await message.answer("❌ Произошла ошибка при отправке заявки. Попробуйте еще раз.")
+
+
+async def main():
+    # Получаем токен бота из переменных окружения на хостинге
+    bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if not bot_token:
+        raise ValueError("Не найден TELEGRAM_BOT_TOKEN в переменных окружения!")
+
+    bot = Bot(token=bot_token)
+    dp = Dispatcher()
+    
+    # Подключаем наш роутер
+    dp.include_router(router)
+
+    # Убираем старые апдейты при запуске и запускаем поллинг
+    print("Бот запущен и ожидает сообщения...")
+    await bot.delete_webhook(drop_pending_updates=True)
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+    asyncio.run(main())
