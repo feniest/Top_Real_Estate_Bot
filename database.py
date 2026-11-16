@@ -1,22 +1,21 @@
+import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-# Укажите ваши настройки подключения к базе данных
-DB_CONFIG = {
-    "dbname": "your_db",
-    "user": "your_user",
-    "password": "your_password",
-    "host": "localhost",
-    "port": "5432"
-}
-
 def get_connection():
-    return psycopg2.connect(**DB_CONFIG)
+    """Подключение к базе данных PostgreSQL с поддержкой переменных окружения хостинга"""
+    return psycopg2.connect(
+        dbname=os.getenv("DB_NAME", "postgres"),
+        user=os.getenv("DB_USER", "postgres"),
+        password=os.getenv("DB_PASSWORD", ""),
+        host=os.getenv("DB_HOST", "localhost"),
+        port=os.getenv("DB_PORT", "5432")
+    )
 
 def get_market_statistics():
-    """Возвращает агрегированную статистику по категориям (Аренда / Продажа)"""
-    conn = db.get_connection() # Используйте вашу функцию подключения к БД
-    cursor = conn.cursor()
+    """Возвращает агрегированную статистику по категориям (Rent / Sales) для главного экрана"""
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
     try:
         cursor.execute("""
             SELECT 
@@ -30,24 +29,15 @@ def get_market_statistics():
         rows = cursor.fetchall()
         stats = {}
         for row in rows:
-            # Поддерживаем и словарь, и кортеж в зависимости от настроек курсора
-            if isinstance(row, dict):
-                cat = row.get('category')
-                stats[cat] = {
-                    "count": row.get('total_count', 0),
-                    "min_price": row.get('min_price', 0),
-                    "avg_price": row.get('avg_price', 0)
-                }
-            else:
-                cat, count, min_p, avg_p = row
-                stats[cat] = {
-                    "count": count,
-                    "min_price": min_p,
-                    "avg_price": avg_p
-                }
+            cat = row.get('category')
+            stats[cat] = {
+                "count": row.get('total_count', 0),
+                "min_price": row.get('min_price', 0),
+                "avg_price": row.get('avg_price', 0)
+            }
         return stats
     except Exception as e:
-        print(f"⚠️ Ошибка получения статистики: {e}")
+        print(f"⚠️ Ошибка в get_market_statistics: {e}")
         return {}
     finally:
         cursor.close()
@@ -72,7 +62,7 @@ def get_filtered_ads(category: str = None, prop_type: str = None):
         cursor.execute(query, params)
         return cursor.fetchall()
     except Exception as e:
-        print(f"⚠️ Ошибка фильтрации объявлений: {e}")
+        print(f"⚠️ Ошибка в get_filtered_ads: {e}")
         return []
     finally:
         cursor.close()

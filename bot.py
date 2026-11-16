@@ -3,21 +3,20 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import database as db
-from handlers import catalog
 
 app = FastAPI()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Подключаем папку webapp для раздачи статических файлов (картинок, стилей, скриптов)
+# Подключаем папку webapp со статикой (index.html, стили, скрипты)
 if os.path.exists(os.path.join(BASE_DIR, "webapp")):
     app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "webapp")), name="static")
 
 @app.get("/api/stats")
-def get_stats():
+def api_get_stats():
+    """Эндпоинт для получения легкой статистики рынка"""
     try:
-        stats = db.get_market_statistics()
-        return stats
+        return db.get_market_statistics()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -31,10 +30,9 @@ def api_get_ads(category: str = "Rent", prop_type: str = "all"):
 
 @app.get("/", response_class=HTMLResponse)
 def serve_index():
-    # Читаем index.html строго из папки webapp
     index_path = os.path.join(BASE_DIR, "webapp", "index.html")
     if not os.path.exists(index_path):
-        raise HTTPException(status_code=404, detail="Файл webapp/index.html не найден")
+        raise HTTPException(status_code=404, detail="index.html не найден в папке webapp")
     
     with open(index_path, "r", encoding="utf-8") as f:
         return f.read()
