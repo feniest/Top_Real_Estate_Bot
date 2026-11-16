@@ -4,17 +4,23 @@ import asyncio
 import logging
 import sys
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 import uvicorn
 from aiogram import Bot, Dispatcher, types, F, Router
 
-# 1. Инициализация FastAPI для веб-сервера (чтобы хостинг видел открытый порт)
+# 1. Инициализация FastAPI
 app = FastAPI()
 
-@app.get("/")
-def index():
-    return {"status": "Bot and WebApp are running!"}
+# Подключаем папку webapp со статическими файлами (картинки, стили, скрипты)
+app.mount("/static", StaticFiles(directory="webapp"), name="static")
 
-# 2. Настройка бота и роутера
+# Отдаем файл index.html при открытии главного адреса или мини-приложения
+@app.get("/")
+def serve_webapp():
+    return FileResponse("webapp/index.html")
+
+# 2. Настройка бота и роутера для приема заявок
 router = Router()
 
 REALTOR_ID_STR = os.getenv("REALTOR_ID") or os.getenv("ADMIN_ID")
@@ -71,7 +77,7 @@ async def main():
     asyncio.create_task(dp.start_polling(bot))
     print("Telegram бот запущен в фоновом режиме...")
 
-    # Запускаем веб-сервер FastAPI на порту от хостинга (по умолчанию 8080)
+    # Запускаем веб-сервер FastAPI на порту хостинга
     port = int(os.getenv("PORT", 8080))
     config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info")
     server = uvicorn.Server(config)
