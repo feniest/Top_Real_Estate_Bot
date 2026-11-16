@@ -413,6 +413,39 @@
     }
 }
 
+		function renderAds() {
+            const catalog = document.getElementById('catalog');
+            
+            // Фильтруем данные по комнатам на фронтенде, если выбран фильтр
+            let filtered = allAdsCache;
+            if (currentRooms !== 'all') {
+                filtered = allAdsCache.filter(ad => String(ad.rooms) === String(currentRooms));
+            }
+
+            if (!filtered || filtered.length === 0) {
+                catalog.innerHTML = '<div class="loading">Объекты не найдены</div>';
+                return;
+            }
+
+            // Генерируем карточки для каталога
+            catalog.innerHTML = filtered.map(ad => {
+                const priceFormatted = Number(ad.price).toLocaleString('ru-RU');
+                const propTitle = ad.prop_type === 'Houses' ? '🏠 Дом' : '🏢 Квартира';
+                const detailsText = `${ad.rooms ? ad.rooms + '-комн., ' : ''}${ad.area ? ad.area + ' м²' : ''}`;
+                
+                return `
+                    <div class="card" onclick='openDetailScreen(${JSON.stringify(ad)})'>
+                        <div class="card-body">
+                            <div class="price">${priceFormatted} $</div>
+                            <div class="title">${propTitle} №${ad.ad_num}</div>
+                            <div class="details">${detailsText}</div>
+                            <div class="details">${ad.district || ''}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
         async function openDetailScreen(ad) {
             selectedAd = ad;
             
