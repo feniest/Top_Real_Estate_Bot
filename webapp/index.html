@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TopRealEstateBot</title>
-    <!-- Подключаем Telegram Web App скрипт -->
+    <title>TopRealEstateBot - Панель управления</title>
+    <!-- Интеграция с Telegram Web App -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
@@ -13,6 +13,8 @@
             --card-bg: var(--tg-theme-secondary-bg-color, #ffffff);
             --button-color: var(--tg-theme-button-color, #2563eb);
             --button-text: var(--tg-theme-button-text-color, #ffffff);
+            --hint-color: var(--tg-theme-hint-color, #6b7280);
+            --border-color: rgba(0, 0, 0, 0.08);
         }
 
         body {
@@ -20,7 +22,7 @@
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
-            padding: 16px;
+            padding: 12px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -29,156 +31,317 @@
         .container {
             width: 100%;
             max-width: 480px;
-        }
-
-        h2 {
-            font-size: 20px;
-            margin-bottom: 16px;
-            font-weight: 700;
-        }
-
-        /* Меню / Карточки статистики */
-        .menu-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
+            display: flex;
+            flex-direction: column;
             gap: 12px;
-            margin-bottom: 20px;
         }
 
-        .menu-card {
+        /* Верхнее окошко: Панель управления */
+        .control-panel {
             background-color: var(--card-bg);
-            border-radius: 16px;
-            padding: 16px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            border: 1px solid rgba(0,0,0,0.04);
-        }
-
-        .menu-card:active {
-            transform: scale(0.97);
-        }
-
-        .menu-card .icon {
-            font-size: 28px;
-            margin-bottom: 8px;
-        }
-
-        .menu-card .title {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 4px;
-        }
-
-        .menu-card .subtitle {
-            font-size: 12px;
-            opacity: 0.6;
-        }
-
-        /* Интерактивные кнопки фильтров / действий */
-        .action-buttons {
+            border-radius: 14px;
+            padding: 12px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+            border: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
             gap: 10px;
-            margin-top: 10px;
         }
 
-        .btn {
+        .panel-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--hint-color);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: -2px;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            padding-bottom: 2px;
+        }
+
+        .control-btn {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+            flex: 1;
+            text-align: center;
+        }
+
+        .control-btn.active {
             background-color: var(--button-color);
             color: var(--button-text);
-            border: none;
-            border-radius: 12px;
-            padding: 14px;
-            font-size: 15px;
+            border-color: var(--button-color);
             font-weight: 600;
-            cursor: pointer;
-            text-align: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
-        .btn-secondary {
-            background-color: var(--card-bg);
+        /* Выпадающий список (ComboBox) */
+        .combo-select {
+            background-color: var(--bg-color);
             color: var(--text-color);
-            border: 1px solid rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 12px;
+            outline: none;
+            flex: 1;
+        }
+
+        /* Основное рабочее окно: Карточки статистики */
+        .stats-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .stat-card {
+            background-color: var(--card-bg);
+            border-radius: 14px;
+            padding: 12px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .stat-card h3 {
+            margin: 0 0 6px 0;
+            font-size: 15px;
+            font-weight: 700;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 6px;
+            color: var(--button-color);
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--hint-color);
+        }
+
+        .stat-row span:last-child {
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .divider {
+            height: 1px;
+            background-color: var(--border-color);
+            margin: 4px 0;
+        }
+
+        .placeholder-note {
+            text-align: center;
+            font-size: 11px;
+            color: var(--hint-color);
+            margin-top: 4px;
         }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h2>Обзор рынка недвижимости</h2>
-        
-        <!-- Красивые карточки меню (динамически заполняются из /api/stats) -->
-        <div class="menu-grid" id="stats-container">
-            <div class="menu-card" onclick="openCategory('Rent')">
-                <div class="icon">🔑</div>
-                <div class="title">Аренда</div>
-                <div class="subtitle" id="rent-stats">Загрузка...</div>
+        <!-- Верхнее окошко: Панель управления с кнопками -->
+        <div class="control-panel">
+            <div class="panel-title">Панель управления</div>
+
+            <!-- Ряд 1: Аренда / Продажа (по умолчанию не активны) -->
+            <div class="btn-row">
+                <button class="control-btn" id="btn-rent" onclick="toggleCategory('Rent', this)">Аренда</button>
+                <button class="control-btn" id="btn-sales" onclick="toggleCategory('Sales', this)">Продажа</button>
             </div>
-            <div class="menu-card" onclick="openCategory('Sales')">
-                <div class="icon">💰</div>
-                <div class="title">Продажа</div>
-                <div class="subtitle" id="sales-stats">Загрузка...</div>
+
+            <!-- Ряд 2: Тип недвижимости (по умолчанию не активны) -->
+            <div class="btn-row">
+                <button class="control-btn" id="btn-apt" onclick="togglePropType('apartment', this)">Квартиры</button>
+                <button class="control-btn" id="btn-house" onclick="togglePropType('house', this)">Дома и участки</button>
+            </div>
+
+            <!-- Ряд 3: Количество комнат (по умолчанию не активны) -->
+            <div class="btn-row">
+                <button class="control-btn room-btn" onclick="toggleRooms(1, this)">1-комн.</button>
+                <button class="control-btn room-btn" onclick="toggleRooms(2, this)">2-комн.</button>
+                <button class="control-btn room-btn" onclick="toggleRooms(3, this)">3-комн.</button>
+                <button class="control-btn room-btn" onclick="toggleRooms(4, this)">4-комн.</button>
+                <button class="control-btn room-btn" onclick="toggleRooms('5+', this)">5+ комн.</button>
+            </div>
+
+            <!-- Ряд 4: Районы и ComboBox (Все районы активно по умолчанию) -->
+            <div class="btn-row">
+                <button class="control-btn active" id="btn-all-districts" onclick="toggleDistrict('all', this)">Все Районы</button>
+                <select class="combo-select" id="district-combo" onchange="toggleDistrictCombo(this)">
+                    <option value="" disabled selected>ComboBox (Выбрать район)</option>
+                    <option value="district_1">Центральный</option>
+                    <option value="district_2">Северный</option>
+                    <option value="district_3">Южный</option>
+                </select>
             </div>
         </div>
 
-        <!-- Дополнительные кнопки управления -->
-        <div class="action-buttons">
-            <button class="btn" onclick="loadAllAds()">Посмотреть все объекты</button>
-            <button class="btn btn-secondary" onclick="openFilter('apartment')">Квартиры</button>
-            <button class="btn btn-secondary" onclick="openFilter('house')">Дома / Участки</button>
+        <!-- Основное рабочее окно: Статистика по объектам -->
+        <div class="stats-container">
+            <!-- Карточка: Аренда -->
+            <div class="stat-card">
+                <h3>Аренда</h3>
+                <div class="stat-row"><span>Объектов</span><span id="rent-count">???</span></div>
+                <div class="stat-row"><span>1-комн.</span><span id="rent-1r">???</span></div>
+                <div class="stat-row"><span>2-комн.</span><span id="rent-2r">???</span></div>
+                <div class="stat-row"><span>3-комн.</span><span id="rent-3r">???</span></div>
+                <div class="stat-row"><span>4-комн.</span><span id="rent-4r">???</span></div>
+                <div class="stat-row"><span>5+ комн.</span><span id="rent-5r">???</span></div>
+                <div class="divider"></div>
+                <div class="stat-row"><span>Мин.цена</span><span id="rent-min">???</span></div>
+                <div class="stat-row"><span>Макс.цена</span><span id="rent-max">???</span></div>
+                <div class="stat-row"><span>Сред.цена</span><span id="rent-avg">???</span></div>
+            </div>
+
+            <!-- Карточка: Продажа -->
+            <div class="stat-card">
+                <h3>Продажа</h3>
+                <div class="stat-row"><span>Объектов</span><span id="sales-count">???</span></div>
+                <div class="stat-row"><span>1-комн.</span><span id="sales-1r">???</span></div>
+                <div class="stat-row"><span>2-комн.</span><span id="sales-2r">???</span></div>
+                <div class="stat-row"><span>3-комн.</span><span id="sales-3r">???</span></div>
+                <div class="stat-row"><span>4-комн.</span><span id="sales-4r">???</span></div>
+                <div class="stat-row"><span>5+ комн.</span><span id="sales-5r">???</span></div>
+                <div class="divider"></div>
+                <div class="stat-row"><span>Мин.цена</span><span id="sales-min">???</span></div>
+                <div class="stat-row"><span>Макс.цена</span><span id="sales-max">???</span></div>
+                <div class="stat-row"><span>Сред.цена</span><span id="sales-avg">???</span></div>
+            </div>
         </div>
+
+        <div class="placeholder-note" id="filter-status">Фильтры неактивны (отображается общая статистика рынка)</div>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
-        tg.expand(); // Растягиваем мини-приложение на весь экран
+        tg.expand();
 
-        // Загружаем статистику рынка с сервера при открытии
-        async function fetchStats() {
+        // Состояние фильтров
+        let currentFilters = {
+            category: null,      // Аренда / Продажа
+            propType: null,      // Квартиры / Дома
+            rooms: null,         // 1, 2, 3, 4, 5+
+            district: 'all'      // 'all' по умолчанию
+        };
+
+        // Обработчики кликов управления
+        function toggleCategory(category, btn) {
+            if (btn.classList.contains('active')) {
+                btn.classList.remove('active');
+                currentFilters.category = null;
+            } else {
+                document.querySelectorAll('#btn-rent, #btn-sales').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilters.category = category;
+            }
+            fetchAndUpdateStats();
+        }
+
+        function togglePropType(type, btn) {
+            if (btn.classList.contains('active')) {
+                btn.classList.remove('active');
+                currentFilters.propType = null;
+            } else {
+                document.querySelectorAll('#btn-apt, #btn-house').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilters.propType = type;
+            }
+            fetchAndUpdateStats();
+        }
+
+        function toggleRooms(roomVal, btn) {
+            if (btn.classList.contains('active')) {
+                btn.classList.remove('active');
+                currentFilters.rooms = null;
+            } else {
+                document.querySelectorAll('.room-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilters.rooms = roomVal;
+            }
+            fetchAndUpdateStats();
+        }
+
+        function toggleDistrict(districtVal, btn) {
+            document.getElementById('district-combo').selectedIndex = 0; // Сброс комбобокса
+            document.querySelectorAll('#btn-all-districts').forEach(b => b.classList.add('active'));
+            currentFilters.district = districtVal;
+            fetchAndUpdateStats();
+        }
+
+        function toggleDistrictCombo(selectElem) {
+            document.querySelectorAll('#btn-all-districts').forEach(b => b.classList.remove('active'));
+            currentFilters.district = selectElem.value;
+            fetchAndUpdateStats();
+        }
+
+        // Загрузка статистики с сервера с учетом выбранных фильтров
+        async function fetchAndUpdateStats() {
             try {
-                const response = await fetch('/api/stats');
+                // Формируем параметры запроса
+                const params = new URLSearchParams();
+                if (currentFilters.category) params.append('category', currentFilters.category);
+                if (currentFilters.propType) params.append('prop_type', currentFilters.propType);
+                if (currentFilters.rooms) params.append('rooms', currentFilters.rooms);
+                if (currentFilters.district) params.append('district', currentFilters.district);
+
+                const response = await fetch(`/api/stats?${params.toString()}`);
                 const data = await response.json();
 
-                if (data.Rent) {
-                    document.getElementById('rent-stats').innerText = 
-                        `Объектов: ${data.Rent.count}\nЦены от: $${data.Rent.min_price.toLocaleString()}`;
-                } else {
-                    document.getElementById('rent-stats').innerText = 'Объектов: 0';
-                }
+                updateCard('Rent', data.Rent);
+                updateCard('Sales', data.Sales);
 
-                if (data.Sales) {
-                    document.getElementById('sales-stats').innerText = 
-                        `Объектов: ${data.Sales.count}\nЦены от: $${data.Sales.min_price.toLocaleString()}`;
-                } else {
-                    document.getElementById('sales-stats').innerText = 'Объектов: 0';
-                }
+                document.getElementById('filter-status').innerText = 
+                    `Активные фильтры: Категория [${currentFilters.category || 'Все'}], Тип [${currentFilters.propType || 'Все'}], Комнат [${currentFilters.rooms || 'Все'}], Район [${currentFilters.district}]`;
             } catch (e) {
                 console.error("Ошибка загрузки статистики:", e);
             }
         }
 
-        function openCategory(category) {
-            tg.sendData(JSON.stringify({ action: "select_category", category: category }));
-            // Или можно перенаправлять на экран списка, если у вас SPA:
-            alert("Вы выбрали категорию: " + category);
+        function updateCard(prefixKey, stats) {
+            const p = prefixKey.toLowerCase(); // 'rent' или 'sales'
+            if (!stats) {
+                document.getElementById(`${p}-count`).innerText = '0';
+                document.getElementById(`${p}-1r`).innerText = '0';
+                document.getElementById(`${p}-2r`).innerText = '0';
+                document.getElementById(`${p}-3r`).innerText = '0';
+                document.getElementById(`${p}-4r`).innerText = '0';
+                document.getElementById(`${p}-5r`).innerText = '0';
+                document.getElementById(`${p}-min`).innerText = '$0';
+                document.getElementById(`${p}-max`).innerText = '$0';
+                document.getElementById(`${p}-avg`).innerText = '$0';
+                return;
+            }
+
+            document.getElementById(`${p}-count`).innerText = stats.count ?? 0;
+            document.getElementById(`${p}-1r`).innerText = stats.rooms_1 ?? '0';
+            document.getElementById(`${p}-2r`).innerText = stats.rooms_2 ?? '0';
+            document.getElementById(`${p}-3r`).innerText = stats.rooms_3 ?? '0';
+            document.getElementById(`${p}-4r`).innerText = stats.rooms_4 ?? '0';
+            document.getElementById(`${p}-5r`).innerText = stats.rooms_5_plus ?? '0';
+
+            document.getElementById(`${p}-min`).innerText = stats.min_price ? `$${Number(stats.min_price).toLocaleString()}` : '$0';
+            document.getElementById(`${p}-max`).innerText = stats.max_price ? `$${Number(stats.max_price).toLocaleString()}` : '$0';
+            document.getElementById(`${p}-avg`).innerText = stats.avg_price ? `$${Number(stats.avg_price).toLocaleString()}` : '$0';
         }
 
-        function loadAllAds() {
-            fetch('/api/ads?category=all&prop_type=all')
-                .then(res => res.json())
-                .then(data => {
-                    console.log("Все объекты:", data);
-                    alert("Загружено объектов: " + data.length);
-                });
-        }
-
-        function openFilter(propType) {
-            alert("Применен фильтр по типу: " + propType);
-        }
-
-        // Вызываем загрузку при старте
-        fetchStats();
+        // Первичная загрузка при старте (с неактивными фильтрами и активным "Все районы")
+        fetchAndUpdateStats();
     </script>
 </body>
 </html>
