@@ -55,16 +55,23 @@ def get_ads(category: str = "Rent", prop_type: str = "all"):
 @app.get("/api/media-list/{ad_num}")
 def get_media_list(ad_num: str):
     try:
+        # Пытаемся получить файлы из БД
         files = db.get_ad_media_files(ad_num)
+        if not files:
+            return [] # Если файлов нет, возвращаем пустой список без падения
+            
         media = []
         for idx, row in enumerate(files):
-            fname = row.get('file_name', '')
+            # Проверяем, приходит ли словарь или объект базы данных
+            fname = row.get('file_name', '') if isinstance(row, dict) else getattr(row, 'file_name', '')
             ext = fname.lower().split('.')[-1] if '.' in fname else 'jpg'
             m_type = 'video' if ext in ['mp4', 'avi', 'mov', 'mkv'] else 'photo'
             media.append({"id": f"{ad_num}_{idx}", "type": m_type, "file_name": fname})
         return media
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Выводим точную ошибку в консоль хостинга, но не ломаем приложение для пользователя
+        print(f"⚠️ Ошибка в get_media_list для ad_num={ad_num}: {e}")
+        return []
 
 @app.get("/api/media-file/{media_identifier}")
 def get_media_file(media_identifier: str):
