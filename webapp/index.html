@@ -3,172 +3,182 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real Estate Mini App</title>
+    <title>TopRealEstateBot</title>
+    <!-- Подключаем Telegram Web App скрипт -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
-            --bg-color: #f2f2f7;
-            --card-bg: #ffffff;
-            --text-color: #000000;
-            --hint-color: #8e8e93;
-            --button-color: #007aff;
+            --bg-color: var(--tg-theme-bg-color, #f4f4f5);
+            --text-color: var(--tg-theme-text-color, #111827);
+            --card-bg: var(--tg-theme-secondary-bg-color, #ffffff);
+            --button-color: var(--tg-theme-button-color, #2563eb);
+            --button-text: var(--tg-theme-button-text-color, #ffffff);
         }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
             padding: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
+
+        .container {
+            width: 100%;
+            max-width: 480px;
+        }
+
         h2 {
-            margin-bottom: 12px;
             font-size: 20px;
+            margin-bottom: 16px;
+            font-weight: 700;
         }
-        /* Стили для виджетов статистики (навигационного хаба) */
-        .stats-grid {
+
+        /* Меню / Карточки статистики */
+        .menu-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 12px;
             margin-bottom: 20px;
         }
-        .stat-card {
-            background: var(--card-bg);
+
+        .menu-card {
+            background-color: var(--card-bg);
             border-radius: 16px;
             padding: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 1px solid rgba(0,0,0,0.04);
+        }
+
+        .menu-card:active {
+            transform: scale(0.97);
+        }
+
+        .menu-card .icon {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .menu-card .title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .menu-card .subtitle {
+            font-size: 12px;
+            opacity: 0.6;
+        }
+
+        /* Интерактивные кнопки фильтров / действий */
+        .action-buttons {
             display: flex;
             flex-direction: column;
-            gap: 6px;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-            border: 2px solid transparent;
-            transition: all 0.2s;
+            gap: 10px;
+            margin-top: 10px;
         }
-        .stat-card:active {
-            transform: scale(0.96);
-            border-color: var(--button-color);
-        }
-        .stat-icon { font-size: 24px; }
-        .stat-title { font-size: 16px; font-weight: bold; }
-        .stat-details { font-size: 12px; color: var(--hint-color); line-height: 1.4; }
-        
-        /* Каталог и карточки */
-        #catalogScreen { display: none; }
-        .back-btn {
-            background: none;
+
+        .btn {
+            background-color: var(--button-color);
+            color: var(--button-text);
             border: none;
-            color: var(--button-color);
-            font-size: 16px;
-            cursor: pointer;
-            padding: 0;
-            margin-bottom: 12px;
-        }
-        .ad-card {
-            background: var(--card-bg);
-            padding: 12px;
             border-radius: 12px;
-            margin-bottom: 10px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+            padding: 14px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .btn-secondary {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            border: 1px solid rgba(0,0,0,0.1);
         }
     </style>
 </head>
 <body>
 
-    <!-- Стартовый экран: Навигационный хаб (статистика рынка) -->
-    <div id="dashboardScreen">
+    <div class="container">
         <h2>Обзор рынка недвижимости</h2>
-        <div class="stats-grid">
-            <div class="stat-card" onclick="openCategory('Rent')">
-                <div class="stat-icon">🔑</div>
-                <div class="stat-title">Аренда</div>
-                <div id="statRentInfo" class="stat-details">Загрузка...</div>
+        
+        <!-- Красивые карточки меню (динамически заполняются из /api/stats) -->
+        <div class="menu-grid" id="stats-container">
+            <div class="menu-card" onclick="openCategory('Rent')">
+                <div class="icon">🔑</div>
+                <div class="title">Аренда</div>
+                <div class="subtitle" id="rent-stats">Загрузка...</div>
             </div>
-            <div class="stat-card" onclick="openCategory('Sales')">
-                <div class="stat-icon">💰</div>
-                <div class="stat-title">Продажа</div>
-                <div id="statSalesInfo" class="stat-details">Загрузка...</div>
+            <div class="menu-card" onclick="openCategory('Sales')">
+                <div class="icon">💰</div>
+                <div class="title">Продажа</div>
+                <div class="subtitle" id="sales-stats">Загрузка...</div>
             </div>
+        </div>
+
+        <!-- Дополнительные кнопки управления -->
+        <div class="action-buttons">
+            <button class="btn" onclick="loadAllAds()">Посмотреть все объекты</button>
+            <button class="btn btn-secondary" onclick="openFilter('apartment')">Квартиры</button>
+            <button class="btn btn-secondary" onclick="openFilter('house')">Дома / Участки</button>
         </div>
     </div>
 
-    <!-- Экран каталога объявлений (открывается по клику на карточку статистики) -->
-    <div id="catalogScreen">
-        <button class="back-btn" onclick="showDashboard()">← Назад к обзору</button>
-        <h2 id="catalogTitle">Каталог</h2>
-        <div id="adsContainer">Загрузка объектов...</div>
-    </div>
-
     <script>
-        let currentCategory = 'Rent';
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // Растягиваем мини-приложение на весь экран
 
-        // Загрузка статистики рынка при старте приложения
-        async function loadMarketStats() {
+        // Загружаем статистику рынка с сервера при открытии
+        async function fetchStats() {
             try {
                 const response = await fetch('/api/stats');
-                if (!response.ok) throw new Error('Ошибка сервера');
-                const stats = await response.json();
+                const data = await response.json();
 
-                const rent = stats['Rent'] || { count: 0, min_price: 0 };
-                document.getElementById('statRentInfo').innerHTML = `
-                    Объектов: <b>${rent.count}</b><br>
-                    Цены от: <b>${Number(rent.min_price).toLocaleString('ru-RU')} $</b>
-                `;
-
-                const sales = stats['Sales'] || { count: 0, min_price: 0 };
-                document.getElementById('statSalesInfo').innerHTML = `
-                    Объектов: <b>${sales.count}</b><br>
-                    Цены от: <b>${Number(sales.min_price).toLocaleString('ru-RU')} $</b>
-                `;
-            } catch (e) {
-                console.error("Ошибка загрузки статистики:", e);
-                document.getElementById('statRentInfo').innerText = 'Нет данных';
-                document.getElementById('statSalesInfo').innerText = 'Нет данных';
-            }
-        }
-
-        // Переход в конкретный раздел (Аренда или Продажа)
-        async function openCategory(category) {
-            currentCategory = category;
-            document.getElementById('dashboardScreen').style.display = 'none';
-            document.getElementById('catalogScreen').style.display = 'block';
-            document.getElementById('catalogTitle').innerText = category === 'Rent' ? 'Аренда недвижимости' : 'Продажа недвижимости';
-            
-            await loadAds();
-        }
-
-        // Возврат на главный экран со статистикой
-        function showDashboard() {
-            document.getElementById('catalogScreen').style.display = 'none';
-            document.getElementById('dashboardScreen').style.display = 'block';
-            loadMarketStats(); // Обновляем цифры при возврате
-        }
-
-        // Загрузка объявлений выбранного раздела
-        async function loadAds() {
-            const container = document.getElementById('adsContainer');
-            container.innerHTML = 'Загрузка...';
-            try {
-                const response = await fetch(`/api/ads?category=${currentCategory}&prop_type=all`);
-                if (!response.ok) throw new Error('Ошибка загрузки каталога');
-                const ads = await response.json();
-                
-                if (!Array.isArray(ads) || ads.length === 0) {
-                    container.innerHTML = '<div>В этом разделе пока нет объектов.</div>';
-                    return;
+                if (data.Rent) {
+                    document.getElementById('rent-stats').innerText = 
+                        `Объектов: ${data.Rent.count}\nЦены от: $${data.Rent.min_price.toLocaleString()}`;
+                } else {
+                    document.getElementById('rent-stats').innerText = 'Объектов: 0';
                 }
 
-                container.innerHTML = ads.map(ad => `
-                    <div class="ad-card">
-                        <h3>${ad.title || 'Объект недвижимости'}</h3>
-                        <p>Цена: <b>${Number(ad.price || 0).toLocaleString('ru-RU')} $</b></p>
-                    </div>
-                `).join('');
-            } catch (err) {
-                console.error("Ошибка загрузки каталога:", err);
-                container.innerHTML = '<div>Ошибка загрузки данных.</div>';
+                if (data.Sales) {
+                    document.getElementById('sales-stats').innerText = 
+                        `Объектов: ${data.Sales.count}\nЦены от: $${data.Sales.min_price.toLocaleString()}`;
+                } else {
+                    document.getElementById('sales-stats').innerText = 'Объектов: 0';
+                }
+            } catch (e) {
+                console.error("Ошибка загрузки статистики:", e);
             }
         }
 
-        // Инициализация при старте страницы
-        loadMarketStats();
+        function openCategory(category) {
+            tg.sendData(JSON.stringify({ action: "select_category", category: category }));
+            // Или можно перенаправлять на экран списка, если у вас SPA:
+            alert("Вы выбрали категорию: " + category);
+        }
+
+        function loadAllAds() {
+            fetch('/api/ads?category=all&prop_type=all')
+                .then(res => res.json())
+                .then(data => {
+                    console.log("Все объекты:", data);
+                    alert("Загружено объектов: " + data.length);
+                });
+        }
+
+        function openFilter(propType) {
+            alert("Применен фильтр по типу: " + propType);
+        }
+
+        // Вызываем загрузку при старте
+        fetchStats();
     </script>
 </body>
 </html>
