@@ -6,19 +6,39 @@ import sys
 import psycopg2
 import psycopg2.extras
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 from aiogram import Bot, Dispatcher, types, F, Router
 
 # --- 1. НАСТРОЙКА БАЗЫ ДАННЫХ POSTGRESQL ---
-# Хостинг FadeHost автоматически предоставляет DATABASE_URL
-DATABASE_URL = os.getenv("DATABASE_URL")
-
 def get_db_connection():
-    if not DATABASE_URL:
-        raise RuntimeError("Не найдена переменная окружения DATABASE_URL!")
-    return psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+    # Проверяем общую строку подключения, если она задана
+    database_url = os.getenv("DATABASE_URL")
+    if database_url:
+        return psycopg2.connect(database_url, cursor_factory=psycopg2.extras.RealDictCursor)
+    
+    # Иначе собираем параметры автоматически из переменных окружения FadeHost (DB_*)
+    db_host = os.getenv("DB_HOST")
+    db_port = os.getenv("DB_PORT", "5432")
+    db_name = os.getenv("DB_NAME")
+    db_user = os.getenv("DB_USER")
+    db_password = os.getenv("DB_PASSWORD")
+    
+    if all([db_host, db_name, db_user, db_password]):
+        return psycopg2.connect(
+            host=db_host,
+            port=db_port,
+            dbname=db_name,
+            user=db_user,
+            password=db_password,
+            cursor_factory=psycopg2.extras.RealDictCursor
+        )
+    
+    raise RuntimeError(
+        "Не найдены параметры подключения к базе данных! "
+        "Убедитесь, что задана переменная DATABASE_URL или набор переменных DB_HOST, DB_NAME, DB_USER, DB_PASSWORD."
+    )
 
 
 # --- 2. НАСТРОЙКА FASTAPI И ВЕБ-СЕРВЕРА ---
@@ -88,8 +108,6 @@ def get_media_file(media_id: int):
         if not row:
             raise HTTPException(status_code=404, detail="Файл не найден")
             
-        # Возвращаем бинарные данные файла с правильным MIME-типом
-        from fastapi.responses import Response
         return Response(content=row['file_data'], media_type=row['mime_type'])
     except Exception as e:
         print(f"Ошибка при отдаче медиафайла: {e}")
