@@ -8,6 +8,47 @@ def get_connection():
         return psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
     return psycopg2.connect(**DB_CONFIG, cursor_factory=psycopg2.extras.RealDictCursor)
 
+def get_database_stats():
+    """Возвращает общую статистику по активным объектам в базе данных"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    # Запрос для подсчета по категориям и типам недвижимости
+    query = """
+        SELECT 
+            category,
+            property_type,
+            COUNT(*) as count
+        FROM ads 
+        WHERE is_active = 1
+        GROUP BY category, property_type;
+    """
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    
+    # Структурируем данные для удобства
+    stats = {
+        "Rent": {"Apartments": 0, "Houses": 0, "total": 0},
+        "Sales": {"Apartments": 0, "Houses": 0, "total": 0}
+    }
+    
+    for row in rows:
+        # Учитываем, что row может быть словарем (благодаря RealDictCursor) или кортежем
+        if isinstance(row, dict):
+            cat = row.get('category')
+            ptype = row.get('property_type')
+            cnt = row.get('count', 0)
+        else:
+            cat, ptype, cnt = row[0], row[1], row[2]
+            
+        if cat in stats and ptype in stats[cat]:
+            stats[cat][ptype] = cnt
+            stats[cat]["total"] += cnt
+            
+    return stats
+
 def get_filtered_ads(category: str = "all", prop_type: str = "all", district: str = "all", rooms: str = "all"):
     conn = get_connection()
     cursor = conn.cursor()
