@@ -66,6 +66,15 @@
             border-color: var(--accent-color);
         }
 
+        /* Кнопка "Показать" (выделена акцентным цветом для привлечения внимания) */
+        .filter-btn.action-btn {
+            background: var(--accent-color);
+            color: var(--accent-text);
+            border-color: var(--accent-color);
+            flex: 0 0 auto;
+            padding: 8px 14px;
+        }
+
         /* Компактный ряд для 5 кнопок комнат в одну линию */
         .rooms-row {
             display: flex;
@@ -90,7 +99,7 @@
             border: 1px solid #d1d5db;
             border-radius: 8px;
             background: var(--btn-bg);
-            color: var(--btn-text);
+            color: var(--text-color);
             outline: none;
             cursor: pointer;
             text-align: center;
@@ -160,19 +169,19 @@
 
     <!-- Верхнее окошко: Панель управления -->
     <div class="control-panel">
-        <!-- Ряд 1: Аренда / Продажа (в БД: Rent / Sales) -->
+        <!-- Ряд 1: Аренда / Продажа -->
         <div class="button-row">
             <button class="filter-btn" data-group="category" data-value="Rent">Аренда</button>
             <button class="filter-btn" data-group="category" data-value="Sales">Продажа</button>
         </div>
 
-        <!-- Ряд 2: Квартиры / Дома и участки (в БД: Apartments / Houses) -->
+        <!-- Ряд 2: Квартиры / Дома и участки -->
         <div class="button-row">
             <button class="filter-btn" data-group="prop_type" data-value="Apartments">Квартиры</button>
             <button class="filter-btn" data-group="prop_type" data-value="Houses">Дома и участки</button>
         </div>
 
-        <!-- Ряд 3: Комнатность (все 5 кнопок строго в один ряд) -->
+        <!-- Ряд 3: Комнатность -->
         <div class="rooms-row">
             <button class="filter-btn" data-group="rooms" data-value="1">1-комн.</button>
             <button class="filter-btn" data-group="rooms" data-value="2">2-комн.</button>
@@ -181,8 +190,9 @@
             <button class="filter-btn" data-group="rooms" data-value="5+">5+ комн.</button>
         </div>
 
-        <!-- Ряд 4: Выбор районов (Все районы + ComboBox из СУБД) -->
+        <!-- Ряд 4: Кнопка "Показать", "Все Районы" + ComboBox -->
         <div class="button-row">
+            <button class="filter-btn action-btn" id="btnShow">Показать</button>
             <button class="filter-btn active" id="btnAllDistricts" data-value="all">Все Районы</button>
             <select id="districtSelect" class="district-select">
                 <option value="all">Выберите район...</option>
@@ -234,7 +244,6 @@
             district: 'all'
         };
 
-        // Управление подсветкой/затемнением карточек
         function updateCardsVisibility() {
             const rentCard = document.getElementById('card-rent');
             const saleCard = document.getElementById('card-sale');
@@ -308,7 +317,7 @@
 
         document.querySelectorAll('.filter-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                if (btn.id === 'btnAllDistricts') return;
+                if (btn.id === 'btnAllDistricts' || btn.id === 'btnShow') return;
 
                 const group = btn.getAttribute('data-group');
                 const value = btn.getAttribute('data-value');
@@ -336,6 +345,22 @@
             const select = document.getElementById('districtSelect');
             select.value = 'all';
             currentFilters.district = 'all';
+            fetchAndUpdateStats();
+        });
+
+        // Обработка нажатия на кнопку "Показать"
+        document.getElementById('btnShow').addEventListener('click', () => {
+            const select = document.getElementById('districtSelect');
+            const val = select.value;
+            currentFilters.district = val;
+
+            const btnAll = document.getElementById('btnAllDistricts');
+            if (val && val !== 'all') {
+                btnAll.classList.remove('active');
+            } else {
+                btnAll.classList.add('active');
+            }
+
             fetchAndUpdateStats();
         });
 
