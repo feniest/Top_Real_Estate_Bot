@@ -113,6 +113,16 @@
             border-radius: 12px;
             padding: 12px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            transition: opacity 0.25s ease, filter 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        /* Эффект затухания невыбранной карточки */
+        .stat-card.dimmed {
+            opacity: 0.35;
+            filter: grayscale(85%);
+            transform: scale(0.97);
+            box-shadow: none;
+            pointer-events: none;
         }
 
         .stat-card h3 {
@@ -171,11 +181,11 @@
             <button class="filter-btn" data-group="rooms" data-value="5+">5+ комн.</button>
         </div>
 
-        <!-- Ряд 4: Выбор районов (Все районы + Настоящий ComboBox из СУБД) -->
+        <!-- Ряд 4: Выбор районов (Все районы + ComboBox из СУБД) -->
         <div class="button-row">
             <button class="filter-btn active" id="btnAllDistricts" data-value="all">Все Районы</button>
             <select id="districtSelect" class="district-select">
-                <option value="all">Выберите район из базы...</option>
+                <option value="all">Выберите район...</option>
             </select>
         </div>
     </div>
@@ -183,7 +193,7 @@
     <!-- Основное рабочее окно: Карточки статистики -->
     <div class="stats-container">
         <!-- Карточка: Аренда -->
-        <div class="stat-card">
+        <div class="stat-card" id="card-rent">
             <h3>Аренда</h3>
             <div class="stat-row"><span class="stat-label">Объектов</span><span class="stat-value" id="rent-count">0</span></div>
             <div class="stat-row"><span class="stat-label">1-комн.</span><span class="stat-value" id="rent-r1">0</span></div>
@@ -198,7 +208,7 @@
         </div>
 
         <!-- Карточка: Продажа -->
-        <div class="stat-card">
+        <div class="stat-card" id="card-sale">
             <h3>Продажа</h3>
             <div class="stat-row"><span class="stat-label">Объектов</span><span class="stat-value" id="sale-count">0</span></div>
             <div class="stat-row"><span class="stat-label">1-комн.</span><span class="stat-value" id="sale-r1">0</span></div>
@@ -224,13 +234,29 @@
             district: 'all'
         };
 
+        // Управление подсветкой/затемнением карточек
+        function updateCardsVisibility() {
+            const rentCard = document.getElementById('card-rent');
+            const saleCard = document.getElementById('card-sale');
+
+            if (currentFilters.category === 'Rent') {
+                rentCard.classList.remove('dimmed');
+                saleCard.classList.add('dimmed');
+            } else if (currentFilters.category === 'Sale') {
+                saleCard.classList.remove('dimmed');
+                rentCard.classList.add('dimmed');
+            } else {
+                rentCard.classList.remove('dimmed');
+                saleCard.classList.remove('dimmed');
+            }
+        }
+
         async function loadDistricts() {
             try {
                 const response = await fetch('/api/districts');
                 const districts = await response.json();
                 const select = document.getElementById('districtSelect');
                 
-                // Очищаем и оставляем дефолтный пункт
                 select.innerHTML = '<option value="all">Выберите район...</option>';
                 
                 districts.forEach(d => {
@@ -280,10 +306,9 @@
             document.getElementById(`${prefix}-avg`).innerText = Number(stats.avg_price || 0).toLocaleString();
         }
 
-        // Обработка обычных кнопок-фильтров (Аренда, Квартиры, Комнаты)
         document.querySelectorAll('.filter-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                if (btn.id === 'btnAllDistricts') return; // Кнопка "Все районы" обрабатывается отдельно
+                if (btn.id === 'btnAllDistricts') return;
 
                 const group = btn.getAttribute('data-group');
                 const value = btn.getAttribute('data-value');
@@ -298,11 +323,14 @@
                     currentFilters[group] = value;
                 }
 
+                if (group === 'category') {
+                    updateCardsVisibility();
+                }
+
                 fetchAndUpdateStats();
             });
         });
 
-        // Кнопка "Все Районы" сбрасывает выбор в ComboBox
         document.getElementById('btnAllDistricts').addEventListener('click', () => {
             document.getElementById('btnAllDistricts').classList.add('active');
             const select = document.getElementById('districtSelect');
@@ -311,7 +339,6 @@
             fetchAndUpdateStats();
         });
 
-        // Выбор района через ComboBox
         document.getElementById('districtSelect').addEventListener('change', (e) => {
             const val = e.target.value;
             currentFilters.district = val;
