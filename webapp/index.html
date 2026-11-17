@@ -75,7 +75,7 @@
             padding: 8px 14px;
         }
 
-        /* Неактивное состояние кнопки "Показать" по умолчанию */
+        /* Неактивное состояние кнопки "Показать" */
         .filter-btn.action-btn:disabled {
             background: #e5e7eb;
             color: #9ca3af;
@@ -199,7 +199,7 @@
             <button class="filter-btn" data-group="rooms" data-value="5+">5+ комн.</button>
         </div>
 
-        <!-- Ряд 4: Кнопка "Показать" (неактивна по умолчанию), "Все Районы" + ComboBox -->
+        <!-- Ряд 4: Кнопка "Показать", "Все Районы" + ComboBox -->
         <div class="button-row">
             <button class="filter-btn action-btn" id="btnShow" disabled>Показать</button>
             <button class="filter-btn active" id="btnAllDistricts" data-value="all">Все Районы</button>
@@ -253,6 +253,12 @@
             district: 'all'
         };
 
+        // Функция активации кнопки "Показать" при любом изменении параметров
+        function triggerFilterChange() {
+            document.getElementById('btnShow').disabled = false;
+        }
+
+        // Локальное управление видимостью карточек (затухание неподходящей категории)
         function updateCardsVisibility() {
             const rentCard = document.getElementById('card-rent');
             const saleCard = document.getElementById('card-sale');
@@ -303,6 +309,12 @@
 
                 updateCard('rent', data.Rent);
                 updateCard('sale', data.Sales);
+
+                // Применяем визуальное отображение карточек под выбранную категорию
+                updateCardsVisibility();
+
+                // После того как данные загружены и показаны, деактивируем кнопку обратно до следующего изменения
+                document.getElementById('btnShow').disabled = true;
             } catch (e) {
                 console.error("Ошибка загрузки статистики:", e);
             }
@@ -324,6 +336,7 @@
             document.getElementById(`${prefix}-avg`).innerText = Number(stats.avg_price || 0).toLocaleString();
         }
 
+        // Обработка кликов по кнопкам (Категория, Тип, Комнаты)
         document.querySelectorAll('.filter-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 if (btn.id === 'btnAllDistricts' || btn.id === 'btnShow') return;
@@ -341,57 +354,43 @@
                     currentFilters[group] = value;
                 }
 
-                if (group === 'category') {
-                    updateCardsVisibility();
-                }
-
-                fetchAndUpdateStats();
+                triggerFilterChange();
             });
         });
 
+        // Кнопка "Все Районы"
         document.getElementById('btnAllDistricts').addEventListener('click', () => {
             document.getElementById('btnAllDistricts').classList.add('active');
             const select = document.getElementById('districtSelect');
             select.value = 'all';
             currentFilters.district = 'all';
             
-            // Делаем кнопку "Показать" неактивной при выборе "Все Районы"
-            document.getElementById('btnShow').disabled = true;
-
-            fetchAndUpdateStats();
+            triggerFilterChange();
         });
 
-        // Обработка нажатия на кнопку "Показать"
-        document.getElementById('btnShow').addEventListener('click', () => {
-            const select = document.getElementById('districtSelect');
-            const val = select.value;
-            if (val === 'all') return;
-
-            currentFilters.district = val;
-            document.getElementById('btnAllDistricts').classList.remove('active');
-            fetchAndUpdateStats();
-        });
-
-        // Отслеживание выбора района в выпадающем списке
+        // Выпадающий список районов
         document.getElementById('districtSelect').addEventListener('change', (e) => {
             const val = e.target.value;
-            const btnShow = document.getElementById('btnShow');
             const btnAll = document.getElementById('btnAllDistricts');
 
             if (val && val !== 'all') {
-                // Если выбран конкретный район — активируем кнопку "Показать"
-                btnShow.disabled = false;
+                currentFilters.district = val;
+                btnAll.classList.remove('active');
             } else {
-                // Если сброшено на "Выберите район...", отключаем кнопку
-                btnShow.disabled = true;
                 currentFilters.district = 'all';
                 btnAll.classList.add('active');
-                fetchAndUpdateStats();
             }
+
+            triggerFilterChange();
+        });
+
+        // Кнопка "Показать" — отправляет запрос на сервер и отображает объекты по выбранному фильтру
+        document.getElementById('btnShow').addEventListener('click', () => {
+            fetchAndUpdateStats();
         });
 
         loadDistricts();
-        fetchAndUpdateStats();
+        // При старте ничего не запрашиваем автоматически, либо можно вызвать fetchAndUpdateStats() по желанию.
     </script>
 </body>
 </html>
