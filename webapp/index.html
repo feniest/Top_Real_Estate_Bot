@@ -592,7 +592,9 @@
         function showObjectDetailView(obj, index) {
             const priceFormatted = Number(obj.price || 0).toLocaleString();
             const isHouse = obj.prop_type === 'Houses';
-            const objNum = obj.id || index + 1;
+            
+            // ИСПОЛЬЗУЕМ СТРОГО ID ИЗ БАЗЫ ДАННЫХ, ИСКЛЮЧАЯ ЗАВИСИМОСТЬ ОТ ИНДЕКСА МАССИВА
+            const objNum = obj.id || obj.ad_number || (index + 1);
             
             document.getElementById('detailTitle').innerText = `Информация о ${isHouse ? 'Дому' : 'Квартире'} № ${objNum}`;
             document.getElementById('detDistrict').innerText = obj.district || '—';
