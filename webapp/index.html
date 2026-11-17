@@ -253,9 +253,18 @@
             district: 'all'
         };
 
-        // Вспомогательная функция: активирует кнопку "Показать" при любом изменении фильтра
-        function activateShowButton() {
-            document.getElementById('btnShow').disabled = false;
+        // Проверяем условие доступности кнопки "Показать":
+        // Кнопка активна ТОЛЬКО если выбрана ровно одна категория И выбрано количество комнат
+        function updateShowButtonState() {
+            const btnShow = document.getElementById('btnShow');
+            const hasCategory = currentFilters.category !== null; // выбрана либо Аренда, либо Продажа
+            const hasRooms = currentFilters.rooms !== null;       // выбрано количество комнат
+
+            if (hasCategory && hasRooms) {
+                btnShow.disabled = false;
+            } else {
+                btnShow.disabled = true;
+            }
         }
 
         // Локальное управление видимостью карточек (затухание неподходящей категории)
@@ -351,8 +360,8 @@
                     currentFilters[group] = value;
                 }
 
-                // Активируем кнопку "Показать" (карточки при этом не обновляются до нажатия)
-                activateShowButton();
+                // Перепроверяем доступность кнопки "Показать" (требуется категория + комнаты)
+                updateShowButtonState();
             });
         });
 
@@ -363,7 +372,7 @@
             select.value = 'all';
             currentFilters.district = 'all';
             
-            activateShowButton();
+            updateShowButtonState();
         });
 
         // Выпадающий список районов
@@ -379,19 +388,19 @@
                 btnAll.classList.add('active');
             }
 
-            activateShowButton();
+            updateShowButtonState();
         });
 
-        // Главное действие: нажатие на кнопку "Показать" применяет фильтры и обновляет карточки
+        // Главное действие: нажатие на кнопку "Показать" применяет выбранные фильтры и обновляет карточки
         document.getElementById('btnShow').addEventListener('click', () => {
-            fetchAndUpdateStats();
-            // После успешного отображения снова блокируем кнопку до следующих изменений
-            document.getElementById('btnShow').disabled = true;
+            if (currentFilters.category && currentFilters.rooms) {
+                fetchAndUpdateStats();
+            }
         });
 
         loadDistricts();
         
-        // При старте страницы загружаем начальные данные, а кнопка "Показать" остается неактивной
+        // При старте страницы загружаем начальные данные, но кнопка "Показать" неактивна, так как условия не выполнены
         fetchAndUpdateStats();
     </script>
 </body>
