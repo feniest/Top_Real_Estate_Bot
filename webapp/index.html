@@ -253,18 +253,14 @@
             district: 'all'
         };
 
-        // Проверяем условие доступности кнопки "Показать":
+        // Проверка доступности кнопки "Показать":
         // Кнопка активна ТОЛЬКО если выбрана ровно одна категория И выбрано количество комнат
         function updateShowButtonState() {
             const btnShow = document.getElementById('btnShow');
-            const hasCategory = currentFilters.category !== null; // выбрана либо Аренда, либо Продажа
-            const hasRooms = currentFilters.rooms !== null;       // выбрано количество комнат
+            const hasCategory = currentFilters.category !== null;
+            const hasRooms = currentFilters.rooms !== null;
 
-            if (hasCategory && hasRooms) {
-                btnShow.disabled = false;
-            } else {
-                btnShow.disabled = true;
-            }
+            btnShow.disabled = !(hasCategory && hasRooms);
         }
 
         // Локальное управление видимостью карточек (затухание неподходящей категории)
@@ -318,8 +314,6 @@
 
                 updateCard('rent', data.Rent);
                 updateCard('sale', data.Sales);
-
-                // Применяем визуальное отображение карточек (затухание невыбранной категории)
                 updateCardsVisibility();
             } catch (e) {
                 console.error("Ошибка загрузки статистики:", e);
@@ -360,8 +354,8 @@
                     currentFilters[group] = value;
                 }
 
-                // Перепроверяем доступность кнопки "Показать" (требуется категория + комнаты)
                 updateShowButtonState();
+                fetchAndUpdateStats(); // Мгновенный пересчёт статистики
             });
         });
 
@@ -373,6 +367,7 @@
             currentFilters.district = 'all';
             
             updateShowButtonState();
+            fetchAndUpdateStats(); // Мгновенный пересчёт статистики
         });
 
         // Выпадающий список районов
@@ -389,9 +384,10 @@
             }
 
             updateShowButtonState();
+            fetchAndUpdateStats(); // Мгновенный пересчёт статистики
         });
 
-        // Главное действие: нажатие на кнопку "Показать" применяет выбранные фильтры и обновляет карточки
+        // Нажатие на кнопку "Показать" (готово к подключению списка карточек объектов)
         document.getElementById('btnShow').addEventListener('click', () => {
             if (currentFilters.category && currentFilters.rooms) {
                 fetchAndUpdateStats();
@@ -399,8 +395,6 @@
         });
 
         loadDistricts();
-        
-        // При старте страницы загружаем начальные данные, но кнопка "Показать" неактивна, так как условия не выполнены
         fetchAndUpdateStats();
     </script>
 </body>
