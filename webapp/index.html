@@ -26,7 +26,7 @@
             box-sizing: border-box;
         }
 
-        /* Панель фильтрации сверху (изначально скрыта до нажатия "Начать подбор") */
+        /* Панель фильтрации сверху (изначально скрыта) */
         .control-panel {
             background: var(--card-bg);
             border-radius: 12px;
@@ -36,7 +36,7 @@
             position: sticky;
             top: 0;
             z-index: 100;
-            display: none; /* Покажем после клика на "Начать подбор" */
+            display: none;
         }
 
         .button-row {
@@ -71,7 +71,6 @@
             border-color: var(--accent-color);
         }
 
-        /* Кнопка "Показать" */
         .filter-btn.action-btn {
             background: var(--accent-color);
             color: var(--accent-text);
@@ -124,7 +123,7 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
 
-        /* Стартовый экран: Приветствие + Статистика + Кнопки */
+        /* Стартовый экран */
         .welcome-view {
             text-align: center;
             padding: 4px 0;
@@ -141,7 +140,6 @@
             line-height: 1.4;
         }
 
-        /* Большая кнопка "Начать подбор" */
         .start-selection-btn {
             background: var(--accent-color);
             color: var(--accent-text);
@@ -197,7 +195,7 @@
             font-weight: 600;
         }
 
-        /* Структура каталога по рядам */
+        /* Каталог объектов */
         .catalog-view {
             display: none;
         }
@@ -249,6 +247,11 @@
             border-radius: 8px;
             padding: 10px;
             font-size: 13px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .object-card:hover {
+            border-color: var(--accent-color);
         }
 
         .object-title {
@@ -274,7 +277,7 @@
 </head>
 <body>
 
-    <!-- Панель управления фильтрацией (появляется при начале подбора) -->
+    <!-- Панель управления фильтрацией -->
     <div class="control-panel" id="controlPanel">
         <div class="button-row">
             <button class="filter-btn" data-group="category" data-value="Rent">Аренда</button>
@@ -306,14 +309,13 @@
     <!-- Демонстрационная панель -->
     <div class="demo-panel" id="demoPanel">
         
-        <!-- Стартовый экран: Приветствие + Статистика + Кнопки действий -->
+        <!-- Стартовый экран -->
         <div class="welcome-view" id="welcomeView">
             <h3>Рады вас видеть! 🏢</h3>
-            <p>Ищите недвижимость для жизни или хотите выгодно сдать/продать свою? Мы собрали всю актуальную базу в одном месте.</p>
+            <p>Ищите недвижимость для жизни или хотите выгодно сдать/продать свою? Вся актуальная база в одном месте.</p>
             
             <p style="font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">📈 Актуальная аналитика рынка:</p>
 
-            <!-- Ряд со статистикой -->
             <div class="stats-view" style="margin-bottom: 12px;">
                 <div class="stat-card">
                     <h3>Аренда</h3>
@@ -329,15 +331,12 @@
                 </div>
             </div>
 
-            <!-- Кнопки действий -->
             <button class="start-selection-btn" id="btnStartSelection">Начать подбор</button>
             <button class="start-selection-btn" id="btnPublish" style="background: var(--btn-bg); color: var(--text-color); border: 1px solid #d1d5db; margin-top: 8px; box-shadow: none;">Опубликовать</button>
         </div>
 
-        <!-- Каталог объектов (активируется по кнопке "Показать") -->
+        <!-- Каталог объектов -->
         <div class="catalog-view" id="catalogView">
-            
-            <!-- Ряд 1: Краткая статистика по выбранной категории -->
             <div class="catalog-row-stats">
                 <div class="stats-view">
                     <div class="stat-card" id="activeStatCard">
@@ -350,7 +349,6 @@
                 </div>
             </div>
 
-            <!-- Ряд 2: Кнопка возврата и сортировка -->
             <div class="catalog-row-controls">
                 <button class="back-btn" id="btnBackToWelcome">← Изменить фильтры</button>
                 <select id="sortSelect" class="select-field" style="max-width: 160px; padding: 6px 10px; font-size: 12px;">
@@ -359,11 +357,9 @@
                 </select>
             </div>
 
-            <!-- Ряд 3 и последующие: Скролящийся блок карточек -->
             <div class="catalog-row-scroll" id="objectsListContainer">
                 <!-- Карточки подгружаются динамически -->
             </div>
-
         </div>
 
     </div>
@@ -446,6 +442,7 @@
             }
         }
 
+        // Рендеринг карточек в каталоге с обработчиком двойного клика (dblclick)
         function renderObjectsList() {
             const container = document.getElementById('objectsListContainer');
             container.innerHTML = '';
@@ -462,7 +459,7 @@
                 return sortOrder === 'asc' ? priceA - priceB : priceB - priceA;
             });
 
-            sorted.forEach(obj => {
+            sorted.forEach((obj, index) => {
                 const card = document.createElement('div');
                 card.className = 'object-card';
                 card.innerHTML = `
@@ -473,7 +470,78 @@
                     </div>
                     <div class="object-price">${Number(obj.price || 0).toLocaleString()} ${obj.currency || 'сум'}</div>
                 `;
+
+                // --- ОБРАБОТЧИК ДВОЙНОГО КЛИКА НА КАРТОЧКУ ---
+                card.addEventListener('dblclick', () => {
+                    showObjectDetailView(obj, index, sorted.length);
+                });
+
                 container.appendChild(card);
+            });
+        }
+
+        // Отображение полной карточки объекта при двойном клике
+        function showObjectDetailView(obj, index, total) {
+            const demoPanel = document.getElementById('demoPanel');
+            const priceFormatted = Number(obj.price || 0).toLocaleString();
+            const isHouse = obj.prop_type === 'Houses';
+            
+            let specificLines = '';
+            if (isHouse) {
+                specificLines = `
+                    <div class="stat-row"><span class="stat-label">Площадь участка:</span><span class="stat-value">${obj.area || '—'} сот.</span></div>
+                    <div class="stat-row"><span class="stat-label">Этажность дома:</span><span class="stat-value">${obj.floors_total || '—'}</span></div>
+                `;
+            } else {
+                specificLines = `
+                    <div class="stat-row"><span class="stat-label">Этаж:</span><span class="stat-value">${obj.floor || '—'} из ${obj.floors_total || '—'}</span></div>
+                    <div class="stat-row"><span class="stat-label">Площадь:</span><span class="stat-value">${obj.area ? obj.area + ' м²' : '—'}</span></div>
+                `;
+            }
+
+            demoPanel.innerHTML = `
+                <div class="welcome-view" style="text-align: left;">
+                    <h3 style="text-align: center; margin-bottom: 4px;">${isHouse ? '🏠 ДОМ' : '🏢 КВАРТИРА'} № ${obj.id || index + 1}</h3>
+                    <p style="text-align: center; color: var(--hint-color); font-size: 11px; margin-bottom: 12px;">Объект ${index + 1} из ${total}</p>
+                    
+                    <div class="stat-card" style="margin-bottom: 12px;">
+                        <h3>Полная карточка объекта</h3>
+                        <div class="stat-row"><span class="stat-label">Район:</span><span class="stat-value">${obj.district || '—'}</span></div>
+                        <div class="stat-row"><span class="stat-label">Ориентир:</span><span class="stat-value">${obj.landmark || '—'}</span></div>
+                        <div class="stat-row"><span class="stat-label">Комнатность:</span><span class="stat-value">${obj.rooms || '—'}</span></div>
+                        ${specificLines}
+                        <div class="stat-row" style="margin-top: 6px; border-top: 1px solid #e5e7eb; padding-top: 6px;">
+                            <span class="stat-label">Цена:</span>
+                            <span class="stat-value" style="color: var(--accent-color); font-size: 14px;">${priceFormatted} ${obj.currency || 'сум'}</span>
+                        </div>
+                    </div>
+
+                    <!-- Кнопки управления по ТЗ -->
+                    <button class="start-selection-btn" id="btnBackToList" style="background: var(--btn-bg); color: var(--text-color); border: 1px solid #d1d5db; margin-top: 4px; box-shadow: none;">← Вернуться к списку</button>
+                    <button class="start-selection-btn" id="btnMedia" style="margin-top: 8px;">📁 Медиафайлы (Фото / Видео)</button>
+                    <button class="start-selection-btn" id="btnCallRealtor" style="background: #10b981; margin-top: 8px;">📞 Звонок риелтору</button>
+                </div>
+            `;
+
+            // Возврат к списку
+            document.getElementById('btnBackToList').addEventListener('click', () => {
+                switchView('catalog');
+                fetchAndShowCatalog();
+            });
+
+            // Просмотрщик медиафайлов
+            document.getElementById('btnMedia').addEventListener('click', () => {
+                tg.showAlert(`Просмотр медиафайлов объекта № ${obj.id || index + 1}`);
+            });
+
+            // Кнопка звонка риелтору
+/*************  ✨ Windsurf Command Summary   ✨  * *************/
+/*
+- Goal: Fix or implement functionality for object listing, details, and call realtor button.
+- Status: Completed.
+*/
+            document.getElementById('btnCallRealtor').addEventListener('click', () => {
+                tg.showAlert(`Связь с риелтором по объекту № ${obj.id || index + 1}`);
             });
         }
 
@@ -509,12 +577,11 @@
             }
         }
 
-        // Кнопка "Начать подбор"
+        // События интерфейса
         document.getElementById('btnStartSelection').addEventListener('click', () => {
             switchView('filters');
         });
 
-        // Обработчики кликов по кнопкам фильтров
         document.querySelectorAll('.filter-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 if (btn.id === 'btnAllDistricts' || btn.id === 'btnShow') return;
