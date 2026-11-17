@@ -285,7 +285,7 @@
 
         /* Детальный просмотр */
         .detail-view {
-            display: flex;
+            display: none;
             flex-direction: column;
             height: 100%;
             justify-content: space-between;
@@ -384,6 +384,41 @@
             </div>
         </div>
 
+        <!-- Детальный просмотр (статический контейнер) -->
+        <div class="detail-view" id="detailView">
+            <!-- Просмотрщик медиа -->
+            <div style="background: #000; border-radius: 6px; overflow: hidden; margin-bottom: 3px; flex-shrink: 0; border: 0.5px solid #d1d5db;">
+                <div style="width: 100%; height: 175px; display: flex; align-items: center; justify-content: center; background: #111;">
+                    <img id="activeMediaElement" src="" style="max-width: 100%; max-height: 100%; object-fit: contain;" alt="media">
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 2px 6px; background: rgba(0,0,0,0.6);">
+                    <button id="prevMediaBtn" class="back-btn" style="padding: 3px 6px; font-size: 9px;">← Назад</button>
+                    <span id="mediaCounter" style="font-size: 9px; color: #fff;">1 из 1</span>
+                    <button id="nextMediaBtn" class="back-btn" style="padding: 3px 6px; font-size: 9px;">Вперед →</button>
+                </div>
+            </div>
+
+            <!-- Карточка информации об объекте -->
+            <div class="stat-card" style="margin-bottom: 3px; flex-shrink: 0; padding: 5px 8px; border: 0.5px solid #d1d5db;">
+                <h3 id="detailTitle" style="margin-bottom: 2px; font-size: 12px;">Информация об объекте</h3>
+                <div class="stat-row" style="margin-bottom: 2px;"><span class="stat-label">Район:</span><span class="stat-value" id="detDistrict">—</span></div>
+                <div class="stat-row" style="margin-bottom: 2px;"><span class="stat-label">Ориентир:</span><span class="stat-value" id="detLandmark">—</span></div>
+                <div class="stat-row" style="margin-bottom: 2px;"><span class="stat-label">Комнатность:</span><span class="stat-value" id="detRooms">—</span></div>
+                <div id="detSpecificLines"></div>
+                <div class="stat-row" style="margin-top: 1px; border-top: 0.5px solid #e5e7eb; padding-top: 2px; margin-bottom: 0;">
+                    <span class="stat-label">Цена:</span>
+                    <span class="stat-value" id="detPrice" style="color: var(--accent-color); font-size: 11px;">0 сум</span>
+                </div>
+            </div>
+
+            <!-- Блок кнопок управления -->
+            <div style="flex-shrink: 0;">
+                <button class="start-selection-btn" id="btnFavorite" style="background: #f59e0b; padding: 6px; font-size: 11px; margin-bottom: 2px;">⭐ В избранное</button>
+                <button class="start-selection-btn" id="btnCallRealtor" style="background: #10b981; padding: 6px; font-size: 11px; margin-bottom: 2px;">📞 Звонок риелтору</button>
+                <button class="start-selection-btn" id="btnBackToList" style="background: var(--btn-bg); color: var(--text-color); border: 0.5px solid #d1d5db; padding: 6px; font-size: 11px;">← К списку</button>
+            </div>
+        </div>
+
     </div>
 
     <script>
@@ -398,6 +433,8 @@
         };
 
         let loadedObjects = [];
+        let currentMediaItems = [];
+        let currentMediaIdx = 0;
 
         function updateShowButtonState() {
             const btnShow = document.getElementById('btnShow');
@@ -409,19 +446,24 @@
         function switchView(viewName) {
             const welcomeView = document.getElementById('welcomeView');
             const catalogView = document.getElementById('catalogView');
+            const detailView = document.getElementById('detailView');
             const controlPanel = document.getElementById('controlPanel');
+
+            welcomeView.style.display = 'none';
+            catalogView.style.display = 'none';
+            detailView.style.display = 'none';
+            controlPanel.style.display = 'none';
 
             if (viewName === 'welcome') {
                 welcomeView.style.display = 'flex';
-                catalogView.style.display = 'none';
-                controlPanel.style.display = 'none';
             } else if (viewName === 'filters') {
-                welcomeView.style.display = 'none';
-                catalogView.style.display = 'none';
+                welcomeView.style.display = 'none'; // Скрыто, но панель управления активна
                 controlPanel.style.display = 'block';
             } else if (viewName === 'catalog') {
-                welcomeView.style.display = 'none';
                 catalogView.style.display = 'flex';
+                controlPanel.style.display = 'block';
+            } else if (viewName === 'detail') {
+                detailView.style.display = 'flex';
                 controlPanel.style.display = 'block';
             }
         }
@@ -493,109 +535,84 @@
                 `;
 
                 card.addEventListener('dblclick', () => {
-                    showObjectDetailView(obj, index, sorted.length);
+                    showObjectDetailView(obj, index);
                 });
 
                 container.appendChild(card);
             });
         }
 
-        function showObjectDetailView(obj, index, total) {
-            const demoPanel = document.getElementById('demoPanel');
+        function updateMediaView() {
+            const activeEl = document.getElementById('activeMediaElement');
+            const counterEl = document.getElementById('mediaCounter');
+            if (currentMediaItems.length > 0) {
+                const item = currentMediaItems[currentMediaIdx];
+                activeEl.src = item.url || item;
+                counterEl.innerText = `${currentMediaIdx + 1} из ${currentMediaItems.length}`;
+            }
+        }
+
+        function showObjectDetailView(obj, index) {
             const priceFormatted = Number(obj.price || 0).toLocaleString();
             const isHouse = obj.prop_type === 'Houses';
             const objNum = obj.id || index + 1;
-            const objNameFull = `${isHouse ? 'Дому' : 'Квартире'} № ${objNum}`;
             
-            let specificLines = '';
+            document.getElementById('detailTitle').innerText = `Информация о ${isHouse ? 'Дому' : 'Квартире'} № ${objNum}`;
+            document.getElementById('detDistrict').innerText = obj.district || '—';
+            document.getElementById('detLandmark').innerText = obj.landmark || obj.orientir || '—';
+            document.getElementById('detRooms').innerText = obj.rooms || '—';
+            document.getElementById('detPrice').innerText = `${priceFormatted} ${obj.currency || 'сум'}`;
+
+            const specificContainer = document.getElementById('detSpecificLines');
             if (isHouse) {
-                specificLines = `
+                specificContainer.innerHTML = `
                     <div class="stat-row" style="margin-bottom: 2px;"><span class="stat-label">Участок:</span><span class="stat-value">${obj.area || '—'} сот.</span></div>
                     <div class="stat-row" style="margin-bottom: 2px;"><span class="stat-label">Этажность:</span><span class="stat-value">${obj.floors_total || '—'}</span></div>
                 `;
             } else {
-                specificLines = `
+                specificContainer.innerHTML = `
                     <div class="stat-row" style="margin-bottom: 2px;"><span class="stat-label">Этаж:</span><span class="stat-value">${obj.floor || '—'} из ${obj.floors_total || '—'}</span></div>
                     <div class="stat-row" style="margin-bottom: 2px;"><span class="stat-label">Площадь:</span><span class="stat-value">${obj.area ? obj.area + ' м²' : '—'}</span></div>
                 `;
             }
 
-            const mediaItems = obj.media && obj.media.length > 0 ? obj.media : [
+            currentMediaItems = obj.media && obj.media.length > 0 ? obj.media : [
                 { type: 'photo', url: 'https://via.placeholder.com/500x250?text=Object+Media+1' },
                 { type: 'photo', url: 'https://via.placeholder.com/500x250?text=Object+Media+2' }
             ];
+            currentMediaIdx = 0;
+            updateMediaView();
 
-            demoPanel.innerHTML = `
-                <div class="detail-view">
-                    
-                    <!-- Просмотрщик (высота 175px, тонкая рамка 0.5px) -->
-                    <div style="background: #000; border-radius: 6px; overflow: hidden; margin-bottom: 3px; flex-shrink: 0; border: 0.5px solid #d1d5db;">
-                        <div style="width: 100%; height: 175px; display: flex; align-items: center; justify-content: center; background: #111;">
-                            <img id="activeMediaElement" src="${mediaItems[0].url || mediaItems[0]}" style="max-width: 100%; max-height: 100%; object-fit: contain;" alt="media">
-                        </div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 2px 6px; background: rgba(0,0,0,0.6);">
-                            <button id="prevMediaBtn" class="back-btn" style="padding: 3px 6px; font-size: 9px;">← Назад</button>
-                            <span id="mediaCounter" style="font-size: 9px; color: #fff;">1 из ${mediaItems.length}</span>
-                            <button id="nextMediaBtn" class="back-btn" style="padding: 3px 6px; font-size: 9px;">Вперед →</button>
-                        </div>
-                    </div>
+            // Переключаем экран на детальный просмотр
+            switchView('detail');
 
-                    <!-- Карточка объекта (тонкая рамка 0.5px) -->
-                    <div class="stat-card" style="margin-bottom: 3px; flex-shrink: 0; padding: 5px 8px; border: 0.5px solid #d1d5db;">
-                        <h3 style="margin-bottom: 2px; font-size: 12px;">Информация о ${objNameFull}</h3>
-                        <div class="stat-row" style="margin-bottom: 2px;"><span class="stat-label">Район:</span><span class="stat-value">${obj.district || '—'}</span></div>
-                        <div class="stat-row" style="margin-bottom: 2px;"><span class="stat-label">Ориентир:</span><span class="stat-value">${obj.landmark || obj.orientir || '—'}</span></div>
-                        <div class="stat-row" style="margin-bottom: 2px;"><span class="stat-label">Комнатность:</span><span class="stat-value">${obj.rooms || '—'}</span></div>
-                        ${specificLines}
-                        <div class="stat-row" style="margin-top: 1px; border-top: 0.5px solid #e5e7eb; padding-top: 2px; margin-bottom: 0;">
-                            <span class="stat-label">Цена:</span>
-                            <span class="stat-value" style="color: var(--accent-color); font-size: 11px;">${priceFormatted} ${obj.currency || 'сум'}</span>
-                        </div>
-                    </div>
-
-                    <!-- Блок кнопок управления -->
-                    <div style="flex-shrink: 0;">
-                        <button class="start-selection-btn" id="btnFavorite" style="background: #f59e0b; padding: 6px; font-size: 11px; margin-bottom: 2px;">⭐ В избранное</button>
-                        <button class="start-selection-btn" id="btnCallRealtor" style="background: #10b981; padding: 6px; font-size: 11px; margin-bottom: 2px;">📞 Звонок риелтору</button>
-                        <button class="start-selection-btn" id="btnBackToList" style="background: var(--btn-bg); color: var(--text-color); border: 0.5px solid #d1d5db; padding: 6px; font-size: 11px;">← К списку</button>
-                    </div>
-                </div>
-            `;
-
-            let currentMediaIdx = 0;
-            function updateMediaView() {
-                const activeEl = document.getElementById('activeMediaElement');
-                const counterEl = document.getElementById('mediaCounter');
-                const item = mediaItems[currentMediaIdx];
-                
-                activeEl.src = item.url || item;
-                counterEl.innerText = `${currentMediaIdx + 1} из ${mediaItems.length}`;
-            }
-
-            document.getElementById('prevMediaBtn').addEventListener('click', () => {
-                currentMediaIdx = (currentMediaIdx - 1 + mediaItems.length) % mediaItems.length;
-                updateMediaView();
-            });
-
-            document.getElementById('nextMediaBtn').addEventListener('click', () => {
-                currentMediaIdx = (currentMediaIdx + 1) % mediaItems.length;
-                updateMediaView();
-            });
-
-            document.getElementById('btnFavorite').addEventListener('click', () => {
-                tg.showAlert(`Объект успешно добавлен в избранное! ⭐`);
-            });
-
-            // Активированная кнопка возврата к списку
-            document.getElementById('btnBackToList').addEventListener('click', () => {
-                switchView('catalog');
-                renderObjectsList();
-            });
-
-            document.getElementById('btnCallRealtor').addEventListener('click', () => {
+            // Кнопка «Звонок риелтору»
+            document.getElementById('btnCallRealtor').onclick = () => {
                 tg.showAlert(`Связь с риелтором по объекту № ${objNum}`);
-            });
+            };
+
+            // Кнопка «В избранное»
+            document.getElementById('btnFavorite').onclick = () => {
+                tg.showAlert(`Объект успешно добавлен в избранное! ⭐`);
+            };
         }
+
+        // Обработчики кнопок смены медиа
+        document.getElementById('prevMediaBtn').addEventListener('click', () => {
+            currentMediaIdx = (currentMediaIdx - 1 + currentMediaItems.length) % currentMediaItems.length;
+            updateMediaView();
+        });
+
+        document.getElementById('nextMediaBtn').addEventListener('click', () => {
+            currentMediaIdx = (currentMediaIdx + 1) % currentMediaItems.length;
+            updateMediaView();
+        });
+
+        // Кнопка возврата к списку
+        document.getElementById('btnBackToList').addEventListener('click', () => {
+            switchView('catalog');
+            renderObjectsList();
+        });
 
         async function fetchAndShowCatalog() {
             try {
