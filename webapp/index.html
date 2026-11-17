@@ -544,8 +544,10 @@
         function updateMediaView() {
             const imgEl = document.getElementById('activeImageElement');
             const videoEl = document.getElementById('activeVideoElement');
+            const sourceEl = document.getElementById('videoSourceElement');
             const counterEl = document.getElementById('mediaCounter');
 
+            // Всегда останавливаем видео при переключении слайда
             if (videoEl) {
                 videoEl.pause();
                 videoEl.currentTime = 0;
@@ -565,6 +567,7 @@
 
                 const lowerUrl = mediaUrl.toLowerCase();
                 
+                // Проверяем, является ли файл видео по расширению или типу
                 const isVideo = mediaType.includes('video') || 
                                 lowerUrl.includes('.mp4') || 
                                 lowerUrl.includes('.mov') || 
@@ -572,20 +575,23 @@
                                 lowerUrl.includes('.mkv') || 
                                 lowerUrl.includes('.webm') || 
                                 lowerUrl.includes('.m4v') ||
-                                lowerUrl.includes('/video/') ||
-                                lowerUrl.includes('media/');
+                                lowerUrl.includes('/video/');
 
                 if (isVideo) {
+                    // Скрываем картинку, показываем плеер
                     imgEl.style.display = 'none';
                     imgEl.src = '';
                     
                     videoEl.style.display = 'block';
-                    videoEl.src = mediaUrl;
+                    sourceEl.src = mediaUrl;
                     videoEl.load();
                     videoEl.play().catch(err => console.log("Автозапуск видео:", err));
                 } else {
+                    // Обязательно останавливаем и скрываем видео, показываем картинку
+                    videoEl.pause();
                     videoEl.style.display = 'none';
-                    videoEl.src = '';
+                    sourceEl.src = '';
+                    videoEl.load();
                     
                     imgEl.style.display = 'block';
                     imgEl.src = mediaUrl;
@@ -594,7 +600,9 @@
                 counterEl.innerText = `${currentMediaIdx + 1} из ${currentMediaItems.length}`;
             } else {
                 videoEl.style.display = 'none';
-                videoEl.src = '';
+                sourceEl.src = '';
+                videoEl.load();
+                
                 imgEl.style.display = 'block';
                 imgEl.src = '';
                 counterEl.innerText = '0 из 0';
