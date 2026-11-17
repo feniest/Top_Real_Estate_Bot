@@ -27,7 +27,7 @@ dp = Dispatcher()
 # Инициализация FastAPI для веб-приложения
 app = FastAPI()
 
-# --- Встроенные функции работы с базой данных (напрямую через psycopg2) ---
+# --- Встроенные функции работы с базой данных ---
 
 def get_connection():
     """Подключение к базе данных PostgreSQL"""
@@ -64,7 +64,7 @@ def get_market_statistics(
     rooms: str = None,
     district: str = None
 ):
-    """Возвращает детальную статистику по активным объявлениям (is_active = 1) с учетом фильтров"""
+    """Возвращает детальную статистику по активным объявлениям (is_active = 1)"""
     try:
         conn = get_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -131,6 +131,84 @@ def get_market_statistics(
         logger.error(f"⚠️ Ошибка в get_market_statistics: {e}")
         return {}
 
+def get_filtered_objects(
+    category: str = None,
+    prop_type: str = None,
+    rooms: str = None,
+    district: str = None
+):
+    """Возвращает полный список активных объектов по заданным фильтрам"""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        query = """
+            SELECT 
+                ad_number,
+                category,
+                property_type,
+                rooms,
+                district,
+                landmark,
+                area,
+                floor,
+                floors_total,
+                price
+            FROM ads
+            WHERE is_active = 1
+        """
+        params = []
+
+        if category and category != 'all':
+            query += " AND category = %s"
+            params.append(category)
+
+        if prop_type and prop_type != 'all':
+            query += " AND property_type = %s"
+            params.append(prop_type)
+
+        if rooms and rooms != 'all':
+            if rooms == '5+':
+                query += " AND NULLIF(rooms, '')::integer >= 5"
+            else:
+                query += " AND NULLIF(rooms, '')::integer = %s"
+                params.append(int(rooms))
+
+        if district and district != 'all':
+            query += " AND district = %s"
+            params.append(district)
+
+        query += " ORDER BY price ASC;"
+
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
+        results = []
+        for r in rows:
+            type_label = "Квартира" if r.get("property_type") == "Apartments" else "Дом / участок"
+            title_text = f"№ {r.get('ad_number')} • {r.get('rooms')}-комн. ({type_label})"
+            if r.get("landmark"):
+                title_text += f" — {r.get('landmark')}"
+                
+            results.append({
+                "ad_number": r.get("ad_number"),
+                "title": title_text,
+                "district": r.get("district"),
+                "landmark": r.get("landmark"),
+                "rooms": r.get("rooms"),
+                "area": r.get("area"),
+                "floor": r.get("floor"),
+                "floors_total": r.get("floors_total"),
+                "price": r.get("price"),
+                "currency": "у.е."
+            })
+        return results
+    except Exception as e:
+        logger.error(f"⚠️ Ошибка в get_filtered_objects: {e}")
+        return []
+
 
 # --- Эндпоинты FastAPI ---
 
@@ -146,6 +224,20 @@ def api_get_stats(
     district: str = Query(None)
 ):
     return get_market_statistics(
+        category=category,
+        prop_type=prop_type,
+        rooms=rooms,
+        district=district
+    )
+
+@app.get("/api/objects")
+def api_get_objects(
+    category: str = Query(None),
+    prop_type: str = Query(None),
+    rooms: str = Query(None),
+    district: str = Query(None)
+):
+    return get_filtered_objects(
         category=category,
         prop_type=prop_type,
         rooms=rooms,
