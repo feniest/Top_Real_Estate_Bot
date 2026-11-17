@@ -540,34 +540,49 @@
             const container = document.getElementById('mediaContainer');
             const counterEl = document.getElementById('mediaCounter');
 
+            // Очищаем контейнер
             container.innerHTML = '';
 
             if (currentMediaItems.length > 0) {
                 const item = currentMediaItems[currentMediaIdx];
-                let mediaUrl = (typeof item === 'object' && item !== null) ? (item.url || item.path || item.file_url || '') : String(item);
+                let mediaUrl = '';
+                let mediaType = '';
+
+                // Поддерживаем как строки, так и объекты
+                if (typeof item === 'object' && item !== null) {
+                    mediaUrl = item.url || item.path || item.file_url || '';
+                    mediaType = (item.type || '').toLowerCase();
+                } else {
+                    mediaUrl = String(item);
+                    // Превращаем элемент в объект для кэширования типа на клиенте, чтобы не определять заново
+                    currentMediaItems[currentMediaIdx] = { url: mediaUrl, type: '' };
+                }
+
+                const cachedObj = currentMediaItems[currentMediaIdx];
+                
+                // Проверяем, определен ли тип ранее
+                let isVideo = cachedObj.type === 'video';
+                
+                if (!cachedObj.type) {
+                    const lowerUrl = mediaUrl.toLowerCase();
+                    // Если в URL явно есть расширение видео или подстрока
+                    isVideo = lowerUrl.includes('.mp4') || 
+                              lowerUrl.includes('.mov') || 
+                              lowerUrl.includes('.avi') || 
+                              lowerUrl.includes('.webm') || 
+                              lowerUrl.includes('/video/');
+                              
+                    cachedObj.type = isVideo ? 'video' : 'image';
+                }
 
                 counterEl.innerText = `${currentMediaIdx + 1} из ${currentMediaItems.length}`;
 
-                // Сначала пробуем отобразить как картинку
-                const imgEl = document.createElement('img');
-                imgEl.src = mediaUrl;
-                imgEl.alt = 'media';
-                imgEl.style.width = '100%';
-                imgEl.style.height = '100%';
-                imgEl.style.objectFit = 'contain';
-                imgEl.style.position = 'absolute';
-                imgEl.style.top = '0';
-                imgEl.style.left = '0';
-
-                // Если картинка не загрузилась (потому что это видео), заменяем её на плеер
-                imgEl.onerror = () => {
-                    container.innerHTML = ''; // Убираем битую картинку
-
+                if (isVideo) {
                     const videoEl = document.createElement('video');
                     videoEl.controls = true;
                     videoEl.playsInline = true;
                     videoEl.setAttribute('webkit-playsinline', '');
-                    videoEl.preload = 'auto';
+                    videoEl.preload = 'metadata'; // Грузим только метаданные, а не весь файл сразу — ускоряет открытие!
                     videoEl.style.width = '100%';
                     videoEl.style.height = '100%';
                     videoEl.style.objectFit = 'contain';
@@ -583,11 +598,30 @@
                     videoEl.appendChild(sourceEl);
                     container.appendChild(videoEl);
 
-                    videoEl.load();
-                    videoEl.play().catch(err => console.log("Автозапуск заблокирован:", err));
-                };
+                    // Безопасный запуск с защитой от быстрого переключения (AbortError)
+                    videoEl.play().catch(err => {
+                        console.log("Автозапуск пропущен или прерван:", err.message);
+                    });
+                } else {
+                    const imgEl = document.createElement('img');
+                    imgEl.src = mediaUrl;
+                    imgEl.alt = 'photo';
+                    imgEl.style.width = '100%';
+                    imgEl.style.height: '100%';
+                    imgEl.style.objectFit = 'contain';
+                    imgEl.style.position = 'absolute';
+                    imgEl.style.top: '0';
+                    imgEl.style.left = '0';
 
-                container.appendChild(imgEl);
+                    // Если файл по эндпоинту /api/media/... на самом деле оказался видео, 
+                    // а мы попытались открыть его как картинку — плавно переключаем тип и перерисовываем
+                    imgEl.onerror = () => {
+                        cachedObj.type = 'video';
+                        updateMediaView();
+                    };
+
+                    container.appendChild(imgEl);
+                }
             } else {
                 counterEl.innerText = '0 из 0';
             }
