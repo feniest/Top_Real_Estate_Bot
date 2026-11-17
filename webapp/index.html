@@ -253,8 +253,8 @@
             district: 'all'
         };
 
-        // Функция активации кнопки "Показать" при любом изменении параметров
-        function triggerFilterChange() {
+        // Вспомогательная функция: активирует кнопку "Показать" при любом изменении фильтра
+        function activateShowButton() {
             document.getElementById('btnShow').disabled = false;
         }
 
@@ -310,11 +310,8 @@
                 updateCard('rent', data.Rent);
                 updateCard('sale', data.Sales);
 
-                // Применяем визуальное отображение карточек под выбранную категорию
+                // Применяем визуальное отображение карточек (затухание невыбранной категории)
                 updateCardsVisibility();
-
-                // После того как данные загружены и показаны, деактивируем кнопку обратно до следующего изменения
-                document.getElementById('btnShow').disabled = true;
             } catch (e) {
                 console.error("Ошибка загрузки статистики:", e);
             }
@@ -354,7 +351,8 @@
                     currentFilters[group] = value;
                 }
 
-                triggerFilterChange();
+                // Активируем кнопку "Показать" (карточки при этом не обновляются до нажатия)
+                activateShowButton();
             });
         });
 
@@ -365,7 +363,7 @@
             select.value = 'all';
             currentFilters.district = 'all';
             
-            triggerFilterChange();
+            activateShowButton();
         });
 
         // Выпадающий список районов
@@ -381,16 +379,20 @@
                 btnAll.classList.add('active');
             }
 
-            triggerFilterChange();
+            activateShowButton();
         });
 
-        // Кнопка "Показать" — отправляет запрос на сервер и отображает объекты по выбранному фильтру
+        // Главное действие: нажатие на кнопку "Показать" применяет фильтры и обновляет карточки
         document.getElementById('btnShow').addEventListener('click', () => {
             fetchAndUpdateStats();
+            // После успешного отображения снова блокируем кнопку до следующих изменений
+            document.getElementById('btnShow').disabled = true;
         });
 
         loadDistricts();
-        // При старте ничего не запрашиваем автоматически, либо можно вызвать fetchAndUpdateStats() по желанию.
+        
+        // При старте страницы загружаем начальные данные, а кнопка "Показать" остается неактивной
+        fetchAndUpdateStats();
     </script>
 </body>
 </html>
