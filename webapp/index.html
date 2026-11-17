@@ -393,8 +393,8 @@
                     <!-- Элемент для изображений -->
                     <img id="activeImageElement" src="" style="max-width: 100%; max-height: 100%; object-fit: contain; display: none;" alt="photo">
                     
-                    <!-- Элемент для видео -->
-                    <video id="activeVideoElement" controls style="max-width: 100%; max-height: 100%; object-fit: contain; display: none; width: 100%; height: 100%;"></video>
+                    <!-- Элемент для видео (с добавленными атрибутами для корректной работы в Telegram Web App) -->
+                    <video id="activeVideoElement" controls playsinline preload="metadata" style="max-width: 100%; max-height: 100%; object-fit: contain; display: none; width: 100%; height: 100%;"></video>
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 2px 6px; background: rgba(0,0,0,0.6);">
                     <button id="prevMediaBtn" class="back-btn" style="padding: 3px 6px; font-size: 9px;">← Назад</button>
@@ -556,7 +556,7 @@
             });
         }
 
-        // Улучшенная функция для переключения и отрисовки медиафайлов
+        // Исправленная функция переключения и отрисовки медиафайлов с поддержкой всех видеоформатов
         function updateMediaView() {
             const imgEl = document.getElementById('activeImageElement');
             const videoEl = document.getElementById('activeVideoElement');
@@ -564,11 +564,11 @@
 
             // Останавливаем воспроизведение предыдущего видео при смене слайда
             videoEl.pause();
+            videoEl.currentTime = 0;
 
             if (currentMediaItems.length > 0) {
                 const item = currentMediaItems[currentMediaIdx];
                 
-                // Поддерживаем как формат массива строк, так и массив объектов {type: 'photo'|'video', url: '...'}
                 let mediaUrl = '';
                 let mediaType = 'photo';
 
@@ -577,17 +577,23 @@
                     mediaType = item.type || 'photo';
                 } else {
                     mediaUrl = String(item);
-                    // Автоматически определяем видео по расширению файла в строке
-                    const lowerUrl = mediaUrl.toLowerCase();
-                    if (lowerUrl.endsWith('.mp4') || lowerUrl.endsWith('.mov') || lowerUrl.endsWith('.webm') || lowerUrl.includes('video')) {
-                        mediaType = 'video';
-                    }
                 }
 
-                if (mediaType === 'video') {
+                // Проверка расширений для всех возможных видео-форматов
+                const lowerUrl = mediaUrl.toLowerCase();
+                const isVideo = lowerUrl.endsWith('.mp4') || 
+                                lowerUrl.endsWith('.mov') || 
+                                lowerUrl.endsWith('.avi') || 
+                                lowerUrl.endsWith('.mkv') || 
+                                lowerUrl.endsWith('.webm') || 
+                                lowerUrl.endsWith('.m4v') || 
+                                lowerUrl.endsWith('.3gp');
+
+                if (isVideo) {
                     imgEl.style.display = 'none';
                     videoEl.style.display = 'block';
                     videoEl.src = mediaUrl;
+                    videoEl.load();
                 } else {
                     videoEl.style.display = 'none';
                     imgEl.style.display = 'block';
@@ -628,11 +634,7 @@
                 `;
             }
 
-            // Безопасно извлекаем галерею медиа из объекта от бэкенда (поддерживаются ключи media, photos или images)
-            currentMediaItems = obj.media || obj.photos || obj.images || [
-                'https://via.placeholder.com/500x250/2563eb/ffffff?text=Apartment+Photo+1',
-                'https://via.placeholder.com/500x250/10b981/ffffff?text=Apartment+Photo+2'
-            ];
+            currentMediaItems = obj.media || obj.photos || obj.images || [];
             
             currentMediaIdx = 0;
             updateMediaView();
