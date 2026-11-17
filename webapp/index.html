@@ -26,12 +26,16 @@
             box-sizing: border-box;
         }
 
+        /* Первая панель: Фильтрация (Зафиксирована сверху) */
         .control-panel {
             background: var(--card-bg);
             border-radius: 12px;
             padding: 12px;
             margin-bottom: 12px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
 
         .button-row {
@@ -75,7 +79,6 @@
             padding: 8px 14px;
         }
 
-        /* Неактивное состояние кнопки "Показать" */
         .filter-btn.action-btn:disabled {
             background: #e5e7eb;
             color: #9ca3af;
@@ -84,7 +87,6 @@
             opacity: 0.7;
         }
 
-        /* Компактный ряд для 5 кнопок комнат в одну линию */
         .rooms-row {
             display: flex;
             flex-wrap: nowrap;
@@ -99,7 +101,6 @@
             font-size: 11px;
         }
 
-        /* Стили для выпадающих списков (Районы, Сортировка) */
         .select-field {
             flex: 1;
             padding: 8px 10px;
@@ -119,45 +120,61 @@
             color: var(--text-color);
         }
 
-        /* Основное рабочее окно: Карточки статистики */
-        .stats-container {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 12px;
-        }
-
-        .stat-card {
-            flex: 1;
+        /* Вторая панель: Демонстрационная */
+        .demo-panel {
             background: var(--card-bg);
             border-radius: 12px;
             padding: 12px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            transition: opacity 0.25s ease, filter 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
         }
 
-        /* Эффект затухания невыбранной карточки */
+        /* Блок 1: Приветствие (изначальное состояние) */
+        .welcome-view {
+            text-align: center;
+            padding: 24px 12px;
+            color: var(--hint-color);
+        }
+        .welcome-view h3 {
+            color: var(--accent-color);
+            margin-top: 0;
+            font-size: 18px;
+        }
+
+        /* Блок 2: Статистика */
+        .stats-view {
+            display: flex;
+            gap: 10px;
+        }
+
+        .stat-card {
+            flex: 1;
+            background: var(--bg-color);
+            border-radius: 10px;
+            padding: 10px;
+            transition: opacity 0.25s ease, filter 0.25s ease, transform 0.25s ease;
+        }
+
         .stat-card.dimmed {
             opacity: 0.35;
             filter: grayscale(85%);
             transform: scale(0.97);
-            box-shadow: none;
             pointer-events: none;
         }
 
         .stat-card h3 {
-            margin: 0 0 10px 0;
-            font-size: 16px;
+            margin: 0 0 8px 0;
+            font-size: 15px;
             text-align: center;
             color: var(--accent-color);
             border-bottom: 1px solid #e5e7eb;
-            padding-bottom: 6px;
+            padding-bottom: 5px;
         }
 
         .stat-row {
             display: flex;
             justify-content: space-between;
-            font-size: 13px;
-            margin-bottom: 6px;
+            font-size: 12px;
+            margin-bottom: 5px;
         }
 
         .stat-label {
@@ -171,16 +188,12 @@
         .divider {
             border: none;
             border-top: 1px dashed #e5e7eb;
-            margin: 8px 0;
+            margin: 6px 0;
         }
 
-        /* Секция каталога объектов */
-        .catalog-section {
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            display: none; /* Скрыто до нажатия кнопки "Показать" */
+        /* Блок 3: Каталог карточек объектов */
+        .catalog-view {
+            display: none;
         }
 
         .catalog-header {
@@ -198,7 +211,6 @@
             color: var(--accent-color);
         }
 
-        /* Карточка отдельного объекта недвижимости */
         .object-card {
             background: var(--bg-color);
             border: 1px solid #e5e7eb;
@@ -231,25 +243,36 @@
             text-align: right;
             font-size: 14px;
         }
+
+        .back-to-stats-btn {
+            background: none;
+            border: none;
+            color: var(--accent-color);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 0;
+            margin-bottom: 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
     </style>
 </head>
 <body>
 
-    <!-- Панель управления (фильтры) -->
+    <!-- Первая панель: Панель управления фильтрацией -->
     <div class="control-panel">
-        <!-- Ряд 1: Аренда / Продажа -->
         <div class="button-row">
             <button class="filter-btn" data-group="category" data-value="Rent">Аренда</button>
             <button class="filter-btn" data-group="category" data-value="Sales">Продажа</button>
         </div>
 
-        <!-- Ряд 2: Квартиры / Дома и участки -->
         <div class="button-row">
             <button class="filter-btn" data-group="prop_type" data-value="Apartments">Квартиры</button>
             <button class="filter-btn" data-group="prop_type" data-value="Houses">Дома и участки</button>
         </div>
 
-        <!-- Ряд 3: Комнатность -->
         <div class="rooms-row">
             <button class="filter-btn" data-group="rooms" data-value="1">1-комн.</button>
             <button class="filter-btn" data-group="rooms" data-value="2">2-комн.</button>
@@ -258,7 +281,6 @@
             <button class="filter-btn" data-group="rooms" data-value="5+">5+ комн.</button>
         </div>
 
-        <!-- Ряд 4: Кнопка "Показать", "Все Районы" + ComboBox Районов -->
         <div class="button-row">
             <button class="filter-btn action-btn" id="btnShow" disabled>Показать</button>
             <button class="filter-btn active" id="btnAllDistricts" data-value="all">Все Районы</button>
@@ -268,52 +290,63 @@
         </div>
     </div>
 
-    <!-- Карточки статистики -->
-    <div class="stats-container">
-        <!-- Карточка: Аренда -->
-        <div class="stat-card" id="card-rent">
-            <h3>Аренда</h3>
-            <div class="stat-row"><span class="stat-label">Объектов</span><span class="stat-value" id="rent-count">0</span></div>
-            <div class="stat-row"><span class="stat-label">1-комн.</span><span class="stat-value" id="rent-r1">0</span></div>
-            <div class="stat-row"><span class="stat-label">2-комн.</span><span class="stat-value" id="rent-r2">0</span></div>
-            <div class="stat-row"><span class="stat-label">3-комн.</span><span class="stat-value" id="rent-r3">0</span></div>
-            <div class="stat-row"><span class="stat-label">4-комн.</span><span class="stat-value" id="rent-r4">0</span></div>
-            <div class="stat-row"><span class="stat-label">5+ комн.</span><span class="stat-value" id="rent-r5">0</span></div>
-            <hr class="divider">
-            <div class="stat-row"><span class="stat-label">Мин.цена</span><span class="stat-value" id="rent-min">0</span></div>
-            <div class="stat-row"><span class="stat-label">Макс.цена</span><span class="stat-value" id="rent-max">0</span></div>
-            <div class="stat-row"><span class="stat-label">Сред.цена</span><span class="stat-value" id="rent-avg">0</span></div>
+    <!-- Вторая панель: Демонстрационная панель -->
+    <div class="demo-panel" id="demoPanel">
+        
+        <!-- Состояние 1: Приветствие -->
+        <div class="welcome-view" id="welcomeView">
+            <h3>Добро пожаловать!</h3>
+            <p>Выберите категорию и количество комнат на панели выше, чтобы увидеть статистику рынка или ознакомиться с актуальными объектами.</p>
         </div>
 
-        <!-- Карточка: Продажа -->
-        <div class="stat-card" id="card-sale">
-            <h3>Продажа</h3>
-            <div class="stat-row"><span class="stat-label">Объектов</span><span class="stat-value" id="sale-count">0</span></div>
-            <div class="stat-row"><span class="stat-label">1-комн.</span><span class="stat-value" id="sale-r1">0</span></div>
-            <div class="stat-row"><span class="stat-label">2-комн.</span><span class="stat-value" id="sale-r2">0</span></div>
-            <div class="stat-row"><span class="stat-label">3-комн.</span><span class="stat-value" id="sale-r3">0</span></div>
-            <div class="stat-row"><span class="stat-label">4-комн.</span><span class="stat-value" id="sale-r4">0</span></div>
-            <div class="stat-row"><span class="stat-label">5+ комн.</span><span class="stat-value" id="sale-r5">0</span></div>
-            <hr class="divider">
-            <div class="stat-row"><span class="stat-label">Мин.цена</span><span class="stat-value" id="sale-min">0</span></div>
-            <div class="stat-row"><span class="stat-label">Макс.цена</span><span class="stat-value" id="sale-max">0</span></div>
-            <div class="stat-row"><span class="stat-label">Сред.цена</span><span class="stat-value" id="sale-avg">0</span></div>
-        </div>
-    </div>
+        <!-- Состояние 2: Статистика -->
+        <div class="stats-view" id="statsView" style="display: none;">
+            <!-- Карточка: Аренда -->
+            <div class="stat-card" id="card-rent">
+                <h3>Аренда</h3>
+                <div class="stat-row"><span class="stat-label">Объектов</span><span class="stat-value" id="rent-count">0</span></div>
+                <div class="stat-row"><span class="stat-label">1-комн.</span><span class="stat-value" id="rent-r1">0</span></div>
+                <div class="stat-row"><span class="stat-label">2-комн.</span><span class="stat-value" id="rent-r2">0</span></div>
+                <div class="stat-row"><span class="stat-label">3-комн.</span><span class="stat-value" id="rent-r3">0</span></div>
+                <div class="stat-row"><span class="stat-label">4-комн.</span><span class="stat-value" id="rent-r4">0</span></div>
+                <div class="stat-row"><span class="stat-label">5+ комн.</span><span class="stat-value" id="rent-r5">0</span></div>
+                <hr class="divider">
+                <div class="stat-row"><span class="stat-label">Мин.цена</span><span class="stat-value" id="rent-min">0</span></div>
+                <div class="stat-row"><span class="stat-label">Макс.цена</span><span class="stat-value" id="rent-max">0</span></div>
+                <div class="stat-row"><span class="stat-label">Сред.цена</span><span class="stat-value" id="rent-avg">0</span></div>
+            </div>
 
-    <!-- Секция каталога объектов (появляется по кнопке "Показать") -->
-    <div class="catalog-section" id="catalogSection">
-        <div class="catalog-header">
-            <h3 id="catalogTitle">Список объектов</h3>
-            <!-- Выпадающий список сортировки по цене -->
-            <select id="sortSelect" class="select-field" style="max-width: 160px; padding: 4px 8px; font-size: 12px;">
-                <option value="asc">Сначала дешевле</option>
-                <option value="desc">Сначала дороже</option>
-            </select>
+            <!-- Карточка: Продажа -->
+            <div class="stat-card" id="card-sale">
+                <h3>Продажа</h3>
+                <div class="stat-row"><span class="stat-label">Объектов</span><span class="stat-value" id="sale-count">0</span></div>
+                <div class="stat-row"><span class="stat-label">1-комн.</span><span class="stat-value" id="sale-r1">0</span></div>
+                <div class="stat-row"><span class="stat-label">2-комн.</span><span class="stat-value" id="sale-r2">0</span></div>
+                <div class="stat-row"><span class="stat-label">3-комн.</span><span class="stat-value" id="sale-r3">0</span></div>
+                <div class="stat-row"><span class="stat-label">4-комн.</span><span class="stat-value" id="sale-r4">0</span></div>
+                <div class="stat-row"><span class="stat-label">5+ комн.</span><span class="stat-value" id="sale-r5">0</span></div>
+                <hr class="divider">
+                <div class="stat-row"><span class="stat-label">Мин.цена</span><span class="stat-value" id="sale-min">0</span></div>
+                <div class="stat-row"><span class="stat-label">Макс.цена</span><span class="stat-value" id="sale-max">0</span></div>
+                <div class="stat-row"><span class="stat-label">Сред.цена</span><span class="stat-value" id="sale-avg">0</span></div>
+            </div>
         </div>
-        <div id="objectsListContainer">
-            <!-- Сюда динамически добавятся карточки объектов -->
+
+        <!-- Состояние 3: Каталог карточек объектов -->
+        <div class="catalog-view" id="catalogView">
+            <button class="back-to-stats-btn" id="btnBackToStats">← Вернуться к статистике</button>
+            <div class="catalog-header">
+                <h3 id="catalogTitle">Список объектов</h3>
+                <select id="sortSelect" class="select-field" style="max-width: 150px; padding: 4px 6px; font-size: 11px;">
+                    <option value="asc">Сначала дешевле</option>
+                    <option value="desc">Сначала дороже</option>
+                </select>
+            </div>
+            <div id="objectsListContainer">
+                <!-- Карточки объектов выводятся сюда -->
+            </div>
         </div>
+
     </div>
 
     <script>
@@ -327,10 +360,10 @@
             district: 'all'
         };
 
-        // Хранилище загруженного списка объектов для сортировки «на лету»
         let loadedObjects = [];
+        let hasInteracted = false; // Флаг, показывающий, выбирал ли пользователь фильтры
 
-        // Проверка активности кнопки "Показать" (Категория + Комнаты)
+        // Проверка активности кнопки "Показать"
         function updateShowButtonState() {
             const btnShow = document.getElementById('btnShow');
             const hasCategory = currentFilters.category !== null;
@@ -338,7 +371,7 @@
             btnShow.disabled = !(hasCategory && hasRooms);
         }
 
-        // Затухание неактивной карточки статистики
+        // Управление видимостью карточек внутри блока статистики
         function updateCardsVisibility() {
             const rentCard = document.getElementById('card-rent');
             const saleCard = document.getElementById('card-sale');
@@ -352,6 +385,25 @@
             } else {
                 rentCard.classList.remove('dimmed');
                 saleCard.classList.remove('dimmed');
+            }
+        }
+
+        // Переключение режимов демонстрационной панели
+        function switchDemoView(viewName) {
+            const welcomeView = document.getElementById('welcomeView');
+            const statsView = document.getElementById('statsView');
+            const catalogView = document.getElementById('catalogView');
+
+            welcomeView.style.display = 'none';
+            statsView.style.display = 'none';
+            catalogView.style.display = 'none';
+
+            if (viewName === 'welcome') {
+                welcomeView.style.display = 'block';
+            } else if (viewName === 'stats') {
+                statsView.style.display = 'flex';
+            } else if (viewName === 'catalog') {
+                catalogView.style.display = 'block';
             }
         }
 
@@ -373,7 +425,6 @@
             }
         }
 
-        // Обновление цифр в карточках статистики
         async function fetchAndUpdateStats() {
             try {
                 const params = new URLSearchParams();
@@ -390,6 +441,11 @@
                 updateCard('rent', data.Rent);
                 updateCard('sale', data.Sales);
                 updateCardsVisibility();
+
+                // Если пользователь начал кликать по фильтрам, переключаем со статуса приветствия на статистику
+                if (hasInteracted) {
+                    switchDemoView('stats');
+                }
             } catch (e) {
                 console.error("Ошибка загрузки статистики:", e);
             }
@@ -411,27 +467,23 @@
             document.getElementById(`${prefix}-avg`).innerText = Number(stats.avg_price || 0).toLocaleString();
         }
 
-        // Отрисовка списка объектов в каталоге
+        // Отрисовка списка объектов в каталоге с сортировкой
         function renderObjectsList() {
             const container = document.getElementById('objectsListContainer');
             container.innerHTML = '';
 
             if (loadedObjects.length === 0) {
-                container.innerHTML = '<div style="text-align: center; color: var(--hint-color); padding: 10px; font-size: 13px;">Объекты не найдены</div>';
+                container.innerHTML = '<div style="text-align: center; color: var(--hint-color); padding: 15px; font-size: 13px;">По вашему запросу объекты не найдены</div>';
                 return;
             }
 
-            // Получаем направление сортировки (asc - от мин к макс, desc - от макс к мин)
             const sortOrder = document.getElementById('sortSelect').value;
-            
-            // Сортируем массив объектов по цене
             const sorted = [...loadedObjects].sort((a, b) => {
                 const priceA = Number(a.price || 0);
                 const priceB = Number(b.price || 0);
                 return sortOrder === 'asc' ? priceA - priceB : priceB - priceA;
             });
 
-            // Формируем карточки
             sorted.forEach(obj => {
                 const card = document.createElement('div');
                 card.className = 'object-card';
@@ -448,7 +500,7 @@
             });
         }
 
-        // Запрос полного списка объектов с бэкенда при нажатии "Показать"
+        // Загрузка объектов и переход во второй панели в режим каталога
         async function fetchAndShowObjects() {
             try {
                 const params = new URLSearchParams();
@@ -459,28 +511,23 @@
                     params.append('district', currentFilters.district);
                 }
 
-                // Предполагается эндпоинт /api/objects, возвращающий массив объектов
                 const response = await fetch(`/api/objects?${params.toString()}`);
                 loadedObjects = await response.json();
 
-                // Показываем блок каталога
-                document.getElementById('catalogSection').style.display = 'block';
-                
-                // Рендерим карточки с учетом выбранной сортировки
+                // Переключаем демонстрационную панель в режим списка объектов
+                switchDemoView('catalog');
                 renderObjectsList();
-
-                // Плавная прокрутка к списку объектов
-                document.getElementById('catalogSection').scrollIntoView({ behavior: 'smooth' });
             } catch (e) {
                 console.error("Ошибка загрузки списка объектов:", e);
             }
         }
 
-        // Обработка кликов по фильтрам
+        // Обработка кликов по фильтрам (первая панель)
         document.querySelectorAll('.filter-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 if (btn.id === 'btnAllDistricts' || btn.id === 'btnShow') return;
 
+                hasInteracted = true;
                 const group = btn.getAttribute('data-group');
                 const value = btn.getAttribute('data-value');
 
@@ -501,6 +548,7 @@
 
         // Кнопка "Все Районы"
         document.getElementById('btnAllDistricts').addEventListener('click', () => {
+            hasInteracted = true;
             document.getElementById('btnAllDistricts').classList.add('active');
             const select = document.getElementById('districtSelect');
             select.value = 'all';
@@ -512,6 +560,7 @@
 
         // Выпадающий список районов
         document.getElementById('districtSelect').addEventListener('change', (e) => {
+            hasInteracted = true;
             const val = e.target.value;
             const btnAll = document.getElementById('btnAllDistricts');
 
@@ -523,24 +572,31 @@
                 btnAll.classList.add('active');
             }
 
-                updateShowButtonState();
-                fetchAndUpdateStats();
+            updateShowButtonState();
+            fetchAndUpdateStats();
         });
 
-        // Кнопка "Показать"
+        // Главное действие: нажатие на кнопку "Показать"
         document.getElementById('btnShow').addEventListener('click', () => {
             if (currentFilters.category && currentFilters.rooms) {
                 fetchAndShowObjects();
             }
         });
 
-        // Изменение сортировки цены обновляет список мгновенно без повторного запроса к серверу
+        // Кнопка возврата из каталога обратно к статистике
+        document.getElementById('btnBackToStats').addEventListener('click', () => {
+            switchDemoView('stats');
+        });
+
+        // Изменение сортировки цены
         document.getElementById('sortSelect').addEventListener('change', () => {
             renderObjectsList();
         });
 
         loadDistricts();
-        fetchAndUpdateStats();
+        
+        // При старте показываем приветственное сообщение во второй панели
+        switchDemoView('welcome');
     </script>
 </body>
 </html>
