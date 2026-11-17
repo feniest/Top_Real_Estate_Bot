@@ -1,15 +1,14 @@
 import os
 import logging
 import asyncio
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from fastapi import FastAPI, Query, Request
 from fastapi.responses import HTMLResponse
 import uvicorn
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message, WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import CommandStart
-
-# Прямой импорт ваших реальных функций из database.py
-from database import get_districts, get_market_statistics
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -25,17 +24,119 @@ if not BOT_TOKEN:
 bot = Bot(token=BOT_TOKEN) if BOT_TOKEN else None
 dp = Dispatcher()
 
-# Инициализация FastAPI для мини-приложения
+# Инициализация FastAPI для веб-приложения
 app = FastAPI()
+
+# --- Встроенные функции работы с базой данных (напрямую через psycopg2) ---
+
+def get_connection():
+    """Подключение к базе данных PostgreSQL"""
+    return psycopg2.connect(
+        dbname=os.getenv("DB_NAME", "postgres"),
+        user=os.getenv("DB_USER", "postgres"),
+        password=os.getenv("DB_PASSWORD", ""),
+        host=os.getenv("DB_HOST", "localhost"),
+        port=os.getenv("DB_PORT", "5432")
+    )
+
+def get_districts():
+    """Возвращает список уникальных районов из таблицы ads"""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("""
+            SELECT DISTINCT district 
+            FROM ads 
+            WHERE district IS NOT NULL AND district != '' 
+            ORDER BY district;
+        """)
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return [row['district'] for row in rows]
+    except Exception as e:
+        logger.error(f"⚠️ Ошибка в get_districts: {e}")
+        return []
+
+def get_market_statistics(
+    category: str = None,
+    prop_type: str = None,
+    rooms: str = None,
+    district: str = None
+):
+    """Возвращает детальную статистику по категориям (Rent / Sale) с учетом фильтров"""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        query = """
+            SELECT 
+                category,
+                COUNT(*) as total_count,
+                COUNT(*) FILTER (WHERE rooms = 1) as rooms_1,
+                COUNT(*) FILTER (WHERE rooms = 2) as rooms_2,
+                COUNT(*) FILTER (WHERE rooms = 3) as rooms_3,
+                COUNT(*) FILTER (WHERE rooms = 4) as rooms_4,
+                COUNT(*) FILTER (WHERE rooms >= 5) as rooms_5_plus,
+                MIN(price) as min_price,
+                MAX(price) as max_price,
+                ROUND(AVG(price)::numeric, 0) as avg_price
+            FROM ads
+            WHERE 1=1
+        """
+        params = []
+
+        if category and category != 'all':
+            query += " AND category = %s"
+            params.append(category)
+
+        if prop_type and prop_type != 'all':
+            query += " AND property_type = %s"
+            params.append(prop_type)
+
+        if rooms and rooms != 'all':
+            if rooms == '5+':
+                query += " AND rooms >= 5"
+            else:
+                query += " AND rooms = %s"
+                params.append(int(rooms))
+
+        if district and district != 'all':
+            query += " AND district = %s"
+            params.append(district)
+
+        query += " GROUP BY category;"
+
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
+        stats = {}
+        for row in rows:
+            cat = row.get('category')
+            stats[cat] = {
+                "count": row.get('total_count', 0),
+                "rooms_1": row.get('rooms_1', 0),
+                "rooms_2": row.get('rooms_2', 0),
+                "rooms_3": row.get('rooms_3', 0),
+                "rooms_4": row.get('rooms_4', 0),
+                "rooms_5_plus": row.get('rooms_5_plus', 0),
+                "min_price": row.get('min_price', 0),
+                "max_price": row.get('max_price', 0),
+                "avg_price": row.get('avg_price', 0)
+            }
+        return stats
+    except Exception as e:
+        logger.error(f"⚠️ Ошибка в get_market_statistics: {e}")
+        return {}
+
+
+# --- Эндпоинты FastAPI ---
 
 @app.get("/api/districts")
 def api_get_districts():
-    """Эндпоинт для получения списка уникальных районов из базы"""
-    try:
-        return get_districts()
-    except Exception as e:
-        logger.error(f"Ошибка в /api/districts: {e}")
-        return []
+    return get_districts()
 
 @app.get("/api/stats")
 def api_get_stats(
@@ -44,33 +145,26 @@ def api_get_stats(
     rooms: str = Query(None),
     district: str = Query(None)
 ):
-    """Эндпоинт для получения статистики рынка по фильтрам"""
-    try:
-        return get_market_statistics(
-            category=category,
-            prop_type=prop_type,
-            rooms=rooms,
-            district=district
-        )
-    except Exception as e:
-        logger.error(f"Ошибка в /api/stats: {e}")
-        return {}
+    return get_market_statistics(
+        category=category,
+        prop_type=prop_type,
+        rooms=rooms,
+        district=district
+    )
 
 @app.get("/", response_class=HTMLResponse)
 def serve_webapp(request: Request):
-    """Отдача фронтенда веб-приложения (index.html)"""
     index_path = os.path.join("webapp", "index.html")
     if os.path.exists(index_path):
         with open(index_path, "r", encoding="utf-8") as f:
             return f.read()
-    return "<h3>Файл webapp/index.html не найден! Убедитесь, что папка webapp находится в корне проекта.</h3>"
+    return "<h3>Файл webapp/index.html не найден!</h3>"
 
 
 # --- Хендлеры Telegram-бота ---
 
 @dp.message(CommandStart())
 async def cmd_start(message: Message):
-    """Приветствие пользователя и кнопка запуска Mini App"""
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -84,12 +178,12 @@ async def cmd_start(message: Message):
     
     await message.answer(
         "👋 Добро пожаловать!\n\n"
-        "Нажмите на кнопку ниже, чтобы открыть интерактивную панель управления и статистику:",
+        "Нажмите на кнопку ниже, чтобы открыть панель управления и статистику:",
         reply_markup=keyboard
     )
 
 
-# --- Одновременный запуск FastAPI и Telegram-бота ---
+# --- Запуск ---
 
 async def run_fastapi():
     config = uvicorn.Config(app, host="0.0.0.0", port=8000, log_level="info")
@@ -103,8 +197,6 @@ async def main():
         
     logger.info("🚀 Запуск веб-сервера и Telegram-бота...")
     fastapi_task = asyncio.create_task(run_fastapi())
-    
-    # Запуск поллинга бота
     await dp.start_polling(bot)
     await fastapi_task
 
