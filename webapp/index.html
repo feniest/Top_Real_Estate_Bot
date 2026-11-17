@@ -124,7 +124,7 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
 
-        /* Стартовый экран: Приветствие + Общая статистика + Кнопка подбора */
+        /* Стартовый экран: Приветствие + Статистика + Кнопки */
         .welcome-view {
             text-align: center;
             padding: 4px 0;
@@ -138,6 +138,7 @@
             color: var(--hint-color);
             font-size: 13px;
             margin-bottom: 12px;
+            line-height: 1.4;
         }
 
         /* Большая кнопка "Начать подбор" */
@@ -305,11 +306,13 @@
     <!-- Демонстрационная панель -->
     <div class="demo-panel" id="demoPanel">
         
-        <!-- Стартовый экран: Приветствие + Статистика + Кнопка подбора -->
+        <!-- Стартовый экран: Приветствие + Статистика + Кнопки действий -->
         <div class="welcome-view" id="welcomeView">
-            <h3>Добро пожаловать!</h3>
-            <p>Актуальная аналитика рынка недвижимости на текущий момент:</p>
+            <h3>Рады вас видеть! 🏢</h3>
+            <p>Ищите недвижимость для жизни или хотите выгодно сдать/продать свою? Мы собрали всю актуальную базу в одном месте.</p>
             
+            <p style="font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--text-color);">📈 Актуальная аналитика рынка:</p>
+
             <!-- Ряд со статистикой -->
             <div class="stats-view" style="margin-bottom: 12px;">
                 <div class="stat-card">
@@ -326,8 +329,9 @@
                 </div>
             </div>
 
-            <!-- Кнопка перехода к подбору -->
+            <!-- Кнопки действий -->
             <button class="start-selection-btn" id="btnStartSelection">Начать подбор</button>
+            <button class="start-selection-btn" id="btnPublish" style="background: var(--btn-bg); color: var(--text-color); border: 1px solid #d1d5db; margin-top: 8px; box-shadow: none;">Опубликовать</button>
         </div>
 
         <!-- Каталог объектов (активируется по кнопке "Показать") -->
