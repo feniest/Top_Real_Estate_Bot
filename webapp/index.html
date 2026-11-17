@@ -160,16 +160,16 @@
 
     <!-- Верхнее окошко: Панель управления -->
     <div class="control-panel">
-        <!-- Ряд 1: Аренда / Продажа -->
+        <!-- Ряд 1: Аренда / Продажа (в БД: Rent / Sales) -->
         <div class="button-row">
             <button class="filter-btn" data-group="category" data-value="Rent">Аренда</button>
-            <button class="filter-btn" data-group="category" data-value="Sale">Продажа</button>
+            <button class="filter-btn" data-group="category" data-value="Sales">Продажа</button>
         </div>
 
-        <!-- Ряд 2: Квартиры / Дома и участки -->
+        <!-- Ряд 2: Квартиры / Дома и участки (в БД: Apartments / Houses) -->
         <div class="button-row">
-            <button class="filter-btn" data-group="prop_type" data-value="Apartment">Квартиры</button>
-            <button class="filter-btn" data-group="prop_type" data-value="House">Дома и участки</button>
+            <button class="filter-btn" data-group="prop_type" data-value="Apartments">Квартиры</button>
+            <button class="filter-btn" data-group="prop_type" data-value="Houses">Дома и участки</button>
         </div>
 
         <!-- Ряд 3: Комнатность (все 5 кнопок строго в один ряд) -->
@@ -242,7 +242,7 @@
             if (currentFilters.category === 'Rent') {
                 rentCard.classList.remove('dimmed');
                 saleCard.classList.add('dimmed');
-            } else if (currentFilters.category === 'Sale') {
+            } else if (currentFilters.category === 'Sales') {
                 saleCard.classList.remove('dimmed');
                 rentCard.classList.add('dimmed');
             } else {
@@ -284,7 +284,7 @@
                 const data = await response.json();
 
                 updateCard('rent', data.Rent);
-                updateCard('sale', data.Sale);
+                updateCard('sale', data.Sales);
             } catch (e) {
                 console.error("Ошибка загрузки статистики:", e);
             }
