@@ -7,7 +7,7 @@ from fastapi import FastAPI, Query, Request
 from fastapi.responses import HTMLResponse
 import uvicorn
 from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message, WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto, BufferedInputFile
+from aiogram.types import Message, WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto, InputMediaVideo, BufferedInputFile
 from aiogram.filters import CommandStart, Command
 
 # Настройка логирования
@@ -308,10 +308,10 @@ async def cmd_start(message: Message):
 
 @dp.message(Command("object"))
 async def cmd_get_object(message: Message):
-    """Команда для запроса объекта по номеру, например: /object 12"""
+    """Команда для запроса объекта по номеру, например: /object 1"""
     args = message.text.split(maxsplit=1)
     if len(args) < 2:
-        await message.answer("⚠️ Пожалуйста, укажите номер объекта. Пример: `/object 12`", parse_mode="Markdown")
+        await message.answer("⚠️ Пожалуйста, укажите номер объекта. Пример: `/object 1`", parse_mode="Markdown")
         return
     
     ad_number = args[1].strip()
@@ -340,21 +340,29 @@ async def cmd_get_object(message: Message):
 
     if media_rows:
         media_group = []
+        video_extensions = ('.mp4', '.mov', '.avi', '.mkv', '.webm')
+        
         # Telegram позволяет отправлять альбомы до 10 штук за раз
         for idx, row in enumerate(media_rows[:10]):
             try:
                 file_bytes = bytes(row['file_data'])
-                file_name = row['file_name'] or f"photo_{idx}.jpg"
+                file_name = (row['file_name'] or f"media_{idx}").lower()
                 
-                input_file = BufferedInputFile(file_bytes, filename=file_name)
+                input_file = BufferedInputFile(file_bytes, filename=row['file_name'] or f"file_{idx}")
                 
-                # Текст подпись добавляем только к первому файлу альбома
+                # Текст подписи добавляем только к первому файлу альбома
                 caption = description if idx == 0 else None
                 parse_mode = "Markdown" if idx == 0 else None
                 
-                media_group.append(
-                    InputMediaPhoto(media=input_file, caption=caption, parse_mode=parse_mode)
-                )
+                # Определяем тип файла: фото или видео
+                if file_name.endswith(video_extensions):
+                    media_group.append(
+                        InputMediaVideo(media=input_file, caption=caption, parse_mode=parse_mode)
+                    )
+                else:
+                    media_group.append(
+                        InputMediaPhoto(media=input_file, caption=caption, parse_mode=parse_mode)
+                    )
             except Exception as ex:
                 logger.error(f"Ошибка обработки медиафайла для объекта {ad_number}: {ex}")
 
@@ -365,7 +373,7 @@ async def cmd_get_object(message: Message):
             except Exception as e:
                 logger.error(f"Ошибка отправки медиа-группы в Telegram: {e}")
 
-    # Если картинок нет или произошла ошибка отправки альбома, шлем текстом
+    # Если медиа нет или произошла ошибка, отправляем хотя бы текст
     await message.answer(description, parse_mode="Markdown")
 
 
