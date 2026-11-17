@@ -66,13 +66,22 @@
             border-color: var(--accent-color);
         }
 
-        /* Кнопка "Показать" (выделена акцентным цветом для привлечения внимания) */
+        /* Кнопка "Показать" */
         .filter-btn.action-btn {
             background: var(--accent-color);
             color: var(--accent-text);
             border-color: var(--accent-color);
             flex: 0 0 auto;
             padding: 8px 14px;
+        }
+
+        /* Неактивное состояние кнопки "Показать" по умолчанию */
+        .filter-btn.action-btn:disabled {
+            background: #e5e7eb;
+            color: #9ca3af;
+            border-color: #d1d5db;
+            cursor: not-allowed;
+            opacity: 0.7;
         }
 
         /* Компактный ряд для 5 кнопок комнат в одну линию */
@@ -190,9 +199,9 @@
             <button class="filter-btn" data-group="rooms" data-value="5+">5+ комн.</button>
         </div>
 
-        <!-- Ряд 4: Кнопка "Показать", "Все Районы" + ComboBox -->
+        <!-- Ряд 4: Кнопка "Показать" (неактивна по умолчанию), "Все Районы" + ComboBox -->
         <div class="button-row">
-            <button class="filter-btn action-btn" id="btnShow">Показать</button>
+            <button class="filter-btn action-btn" id="btnShow" disabled>Показать</button>
             <button class="filter-btn active" id="btnAllDistricts" data-value="all">Все Районы</button>
             <select id="districtSelect" class="district-select">
                 <option value="all">Выберите район...</option>
@@ -345,6 +354,10 @@
             const select = document.getElementById('districtSelect');
             select.value = 'all';
             currentFilters.district = 'all';
+            
+            // Делаем кнопку "Показать" неактивной при выборе "Все Районы"
+            document.getElementById('btnShow').disabled = true;
+
             fetchAndUpdateStats();
         });
 
@@ -352,30 +365,29 @@
         document.getElementById('btnShow').addEventListener('click', () => {
             const select = document.getElementById('districtSelect');
             const val = select.value;
+            if (val === 'all') return;
+
             currentFilters.district = val;
-
-            const btnAll = document.getElementById('btnAllDistricts');
-            if (val && val !== 'all') {
-                btnAll.classList.remove('active');
-            } else {
-                btnAll.classList.add('active');
-            }
-
+            document.getElementById('btnAllDistricts').classList.remove('active');
             fetchAndUpdateStats();
         });
 
+        // Отслеживание выбора района в выпадающем списке
         document.getElementById('districtSelect').addEventListener('change', (e) => {
             const val = e.target.value;
-            currentFilters.district = val;
-
+            const btnShow = document.getElementById('btnShow');
             const btnAll = document.getElementById('btnAllDistricts');
-            if (val && val !== 'all') {
-                btnAll.classList.remove('active');
-            } else {
-                btnAll.classList.add('active');
-            }
 
-            fetchAndUpdateStats();
+            if (val && val !== 'all') {
+                // Если выбран конкретный район — активируем кнопку "Показать"
+                btnShow.disabled = false;
+            } else {
+                // Если сброшено на "Выберите район...", отключаем кнопку
+                btnShow.disabled = true;
+                currentFilters.district = 'all';
+                btnAll.classList.add('active');
+                fetchAndUpdateStats();
+            }
         });
 
         loadDistricts();
