@@ -557,37 +557,36 @@
         }
 
         // Исправленная функция переключения и отрисовки медиафайлов с поддержкой всех видеоформатов
+        // Функция переключения медиа без изменения верстки
         function updateMediaView() {
             const imgEl = document.getElementById('activeImageElement');
             const videoEl = document.getElementById('activeVideoElement');
             const counterEl = document.getElementById('mediaCounter');
 
-            // Останавливаем воспроизведение предыдущего видео при смене слайда
-            videoEl.pause();
-            videoEl.currentTime = 0;
+            // Останавливаем предыдущее видео
+            if (videoEl) {
+                videoEl.pause();
+                videoEl.currentTime = 0;
+            }
 
             if (currentMediaItems.length > 0) {
                 const item = currentMediaItems[currentMediaIdx];
-                
                 let mediaUrl = '';
-                let mediaType = 'photo';
 
                 if (typeof item === 'object' && item !== null) {
                     mediaUrl = item.url || item.path || '';
-                    mediaType = item.type || 'photo';
                 } else {
                     mediaUrl = String(item);
                 }
 
-                // Проверка расширений для всех возможных видео-форматов
+                // Проверяем, является ли файл видео по расширению в ссылке
                 const lowerUrl = mediaUrl.toLowerCase();
                 const isVideo = lowerUrl.endsWith('.mp4') || 
                                 lowerUrl.endsWith('.mov') || 
                                 lowerUrl.endsWith('.avi') || 
                                 lowerUrl.endsWith('.mkv') || 
                                 lowerUrl.endsWith('.webm') || 
-                                lowerUrl.endsWith('.m4v') || 
-                                lowerUrl.endsWith('.3gp');
+                                lowerUrl.endsWith('.m4v');
 
                 if (isVideo) {
                     imgEl.style.display = 'none';
@@ -604,7 +603,7 @@
             } else {
                 videoEl.style.display = 'none';
                 imgEl.style.display = 'block';
-                imgEl.src = 'https://via.placeholder.com/500x250/2563eb/ffffff?text=No+Media+Available';
+                imgEl.src = '';
                 counterEl.innerText = '0 из 0';
             }
         }
