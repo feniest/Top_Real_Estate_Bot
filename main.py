@@ -37,7 +37,16 @@ logging.basicConfig(
     encoding='utf-8'
 )
 
-# === НАСТРОЙКИ TELEGRAM ===
+# === КОНФИГУРАЦИЯ БАЗЫ ДАННЫХ И TELEGRAM ===
+DB_CONFIG = {
+    "host": "37.187.139.87",
+    "port": 35919,
+    "database": "fh7cba1949de20442fb8484660cc696208",
+    "user": "postgres",
+    "password": "7H6SEUopuXHTa9Hu9vpJ04onLYZ4",
+    "connect_timeout": 5
+}
+
 TELEGRAM_BOT_TOKEN = "ВАШ_ТОКЕН_БОТА"  
 TELEGRAM_CHAT_ID = "ВАШ_CHAT_ID"        
 
@@ -103,19 +112,16 @@ def send_log_to_telegram():
 def get_db_connection():
     """Подключение к удаленной базе данных PostgreSQL"""
     try:
-        conn = psycopg2.connect(
-            host="37.187.139.87",
-            port=35919,
-            database="fh7cba1949de20442fb8484660cc696208",
-            user="postgres",
-            password="7H6SEUopuXHTa9Hu9vpJ04onLYZ4",
-            connect_timeout=5
-        )
+        conn = psycopg2.connect(**DB_CONFIG)
         return conn
+    except psycopg2.OperationalError as e:
+        print(f"КРИТИЧЕСКАЯ ОШИБКА БД (Сетевой сбой): {e}")
+        logging.error(f"Критическая ошибка БД (хост: {DB_CONFIG['host']}): {e}")
+        raise e 
     except Exception as e:
         print(f"КРИТИЧЕСКАЯ ОШИБКА БД: {e}")
-        logging.error(f"Критическая ошибка БД (хост: 37.187.139.87): {e}")
-        raise e 
+        logging.error(f"Критическая ошибка БД: {e}")
+        raise e
 
 def hash_password(password):
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -170,6 +176,8 @@ def init_db(parent=None):
     dlg.show()
     QApplication.processEvents()
     
+    conn = None
+    cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -238,14 +246,16 @@ def init_db(parent=None):
             cursor.execute("INSERT INTO users (username, password, role) VALUES (%s, %s, %s)", ("operator", p_op, "operator"))
             
         conn.commit()
-        cursor.close()
-        conn.close()
-        logging.info("Подготовка и инициализация структуры PostgreSQL (хост: 37.187.139.87) выполнены успешно.")
+        logging.info(f"Подготовка и инициализация структуры PostgreSQL (хост: {DB_CONFIG['host']}) выполнены успешно.")
     except Exception as e:
-        logging.critical(f"Ошибка подключения к PostgreSQL (хост: 37.187.139.87): {e}")
+        logging.critical(f"Ошибка подключения к PostgreSQL: {e}")
         print(f"Критическая ошибка подключения к БД: {e}")
         raise e
     finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
         dlg.close()
 
 class ImageViewerDialog(QDialog):
@@ -404,32 +414,37 @@ class AuthWindow(QDialog):
         username = self.username_input.text().strip()
         password = self.password_input.text().strip()
         
+        conn = None
+        cursor = None
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("SELECT password, role FROM users WHERE username=%s", (username,))
             res = cursor.fetchone()
-            cursor.close()
-            conn.close()
             
             if res and verify_password(res[0], password):
                 self.user_data = {"username": username, "role": res[1]}
-                logging.info(f"Пользователь '{username}' (роль: {res[1]}) успешно авторизован на хосте 37.187.139.87.")
+                logging.info(f"Пользователь '{username}' (роль: {res[1]}) успешно авторизован.")
                 self.accept()
             else:
-                logging.warning(f"Неудачная попытка входа для пользователя: '{username}' (хост: 37.187.139.87)")
+                logging.warning(f"Неудачная попытка входа для пользователя: '{username}'")
                 QMessageBox.warning(self, "Ошибка", "Неверный логин или пароль!")
         except Exception as e:
-            logging.error(f"Ошибка при попытке авторизации (хост: 37.187.139.87): {e}")
+            logging.error(f"Ошибка при попытке авторизации: {e}")
             QMessageBox.critical(self, "Ошибка сети", f"Не удалось подключиться к базе данных: {e}")
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
 
 class MainWindow(QMainWindow):
     """Основное окно программы"""
     def __init__(self, user_info):
         super().__init__()
         self.user_info = user_info
-        self.switch_user_requested = False  # Флаг для горячей смены пользователя
-        self.setWindowTitle(f"РБД Управление недвижимостью (PostgreSQL: 37.187.139.87) - Пользователь: {user_info['username']} ({user_info['role']})")
+        self.switch_user_requested = False 
+        self.setWindowTitle(f"РБД Управление недвижимостью (PostgreSQL: {DB_CONFIG['host']}) - Пользователь: {user_info['username']} ({user_info['role']})")
         self.resize(1360, 780)
         
         self.session_temp_dir = tempfile.mkdtemp(prefix="rbd_media_cache_")
@@ -454,7 +469,7 @@ class MainWindow(QMainWindow):
         reply = QMessageBox.question(
             self, 
             "Подтверждение выхода", 
-            "Вы действительно желаете завершить работу с программой? Если вы подтверждаете 'Выход', то все временные Медиа-файлы будут удалены.",
+            "Вы действительно желаете завершить работу с программой? Все временные медиа-файлы будут удалены.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
         )
@@ -463,7 +478,7 @@ class MainWindow(QMainWindow):
             try:
                 if os.path.exists(self.session_temp_dir):
                     shutil.rmtree(self.session_temp_dir)
-                    logging.info(f"Временная папка кэша медиафайлов успешно очищена перед выходом: {self.session_temp_dir}")
+                    logging.info(f"Временная папка кэша медиафайлов успешно очищена: {self.session_temp_dir}")
             except Exception as e:
                 logging.error(f"Ошибка при очистке временной папки: {e}")
             event.accept()
@@ -476,7 +491,7 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(12, 12, 12, 12)
         main_layout.setSpacing(12)
         
-        # --- ПРАВАЯ ПАНЕЛЬ ИНСТРУМЕНТОВ (ToolBox) ---
+        # --- ПРАВАЯ ПАНЕЛЬ ИНСТРУМЕНТОВ ---
         tools_layout = QVBoxLayout()
         tools_layout.setSpacing(8)
         
@@ -518,7 +533,6 @@ class MainWindow(QMainWindow):
             
         tools_layout.addSpacing(10)
         
-        # КНОПКА СМЕНЫ ПОЛЬЗОВАТЕЛЯ ДЛЯ ОПЕРАТОРА И АДМИНИСТРАТОРА
         self.btn_switch_user = QPushButton("🔄 Сменить пользователя")
         self.btn_switch_user.setStyleSheet("background-color: #eff6ff; color: #1e40af; font-weight: bold; border: 1px solid #bfdbfe;")
         self.btn_switch_user.clicked.connect(self.switch_user)
@@ -533,7 +547,7 @@ class MainWindow(QMainWindow):
         
         tools_layout.addStretch()
         
-        # --- ЛЕВАЯ ПАНЕЛЬ ОТОБРАЖЕНИЯ (Вкладки + Поиск) ---
+        # --- ЛЕВАЯ ПАНЕЛЬ ОТОБРАЖЕНИЯ ---
         left_layout = QVBoxLayout()
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(8)
@@ -580,95 +594,21 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(tools_container)
         
         self.setStyleSheet("""
-            QMainWindow {
-                background-color: #f3f4f6;
-            }
-            QWidget {
-                font-family: 'Segoe UI', Arial, sans-serif;
-                font-size: 13px;
-                color: #1f2937;
-            }
-            QLineEdit {
-                background-color: #ffffff;
-                border: 1px solid #d1d5db;
-                border-radius: 6px;
-                padding: 6px 10px;
-                selection-background-color: #2563eb;
-            }
-            QLineEdit:enabled:focus {
-                border: 2px solid #2563eb;
-            }
-            QLineEdit:disabled {
-                background-color: #e5e7eb;
-                color: #9ca3af;
-            }
-            QPushButton {
-                background-color: #ffffff;
-                border: 1px solid #d1d5db;
-                border-radius: 6px;
-                padding: 8px 14px;
-                font-weight: 600;
-                color: #374151;
-            }
-            QPushButton:hover {
-                background-color: #f8fafc;
-                border-color: #9ca3af;
-            }
-            QPushButton:pressed {
-                background-color: #e2e8f0;
-            }
-            QPushButton#btn_save {
-                background-color: #2563eb;
-                color: white;
-                border: none;
-            }
-            QPushButton#btn_save:hover {
-                background-color: #1d4ed8;
-            }
-            QTabWidget::pane {
-                border: 1px solid #d1d5db;
-                border-radius: 6px;
-                background-color: #ffffff;
-                margin: 0px;
-                padding: 0px;
-            }
-            QTabWidget {
-                margin: 0px;
-                padding: 0px;
-            }
-            QTabBar::tab {
-                background-color: #e5e7eb;
-                color: #4b5563;
-                padding: 7px 14px;
-                border-top-left-radius: 6px;
-                border-top-right-radius: 6px;
-                margin-right: 2px;
-                font-weight: 600;
-            }
-            QTabBar::tab:selected {
-                background-color: #2563eb;
-                color: #ffffff;
-            }
-            QTabBar::tab:!selected:hover {
-                background-color: #d1d5db;
-            }
-            QTableWidget {
-                background-color: #ffffff;
-                gridline-color: #e5e7eb;
-                border: 1px solid #e5e7eb;
-                border-radius: 4px;
-                selection-background-color: #dbeafe;
-                selection-color: #1e3a8a;
-                margin: 0px;
-            }
-            QHeaderView::section {
-                background-color: #f8fafc;
-                color: #374151;
-                padding: 8px;
-                border: none;
-                border-bottom: 2px solid #e2e8f0;
-                font-weight: 700;
-            }
+            QMainWindow { background-color: #f3f4f6; }
+            QWidget { font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #1f2937; }
+            QLineEdit { background-color: #ffffff; border: 1px solid #d1d5db; border-radius: 6px; padding: 6px 10px; selection-background-color: #2563eb; }
+            QLineEdit:enabled:focus { border: 2px solid #2563eb; }
+            QLineEdit:disabled { background-color: #e5e7eb; color: #9ca3af; }
+            QPushButton { background-color: #ffffff; border: 1px solid #d1d5db; border-radius: 6px; padding: 8px 14px; font-weight: 600; color: #374151; }
+            QPushButton:hover { background-color: #f8fafc; border-color: #9ca3af; }
+            QPushButton:pressed { background-color: #e2e8f0; }
+            QPushButton#btn_save { background-color: #2563eb; color: white; border: none; }
+            QPushButton#btn_save:hover { background-color: #1d4ed8; }
+            QTabWidget::pane { border: 1px solid #d1d5db; border-radius: 6px; background-color: #ffffff; }
+            QTabBar::tab { background-color: #e5e7eb; color: #4b5563; padding: 7px 14px; border-top-left-radius: 6px; border-top-right-radius: 6px; margin-right: 2px; font-weight: 600; }
+            QTabBar::tab:selected { background-color: #2563eb; color: #ffffff; }
+            QTableWidget { background-color: #ffffff; gridline-color: #e5e7eb; border: 1px solid #e5e7eb; border-radius: 4px; selection-background-color: #dbeafe; selection-color: #1e3a8a; }
+            QHeaderView::section { background-color: #f8fafc; color: #374151; padding: 8px; border: none; border-bottom: 2px solid #e2e8f0; font-weight: 700; }
         """)
 
         self.btn_save.setObjectName("btn_save")
@@ -676,7 +616,6 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
 
     def setup_help_tab(self, parent_tab):
-        """Метод инициализации вкладки 'Помощь' с полным описанием всех возможностей программы"""
         layout = QVBoxLayout()
         layout.setContentsMargins(15, 15, 15, 15)
         
@@ -686,55 +625,10 @@ class MainWindow(QMainWindow):
         
         html_content = """
         <h2 style='color: #2563eb;'>📖 Полное руководство пользователя: «РБД Управление недвижимостью»</h2>
-        
-        <p>Настольное приложение <b>«РБД Управление недвижимостью»</b> предназначено для подготовки оператором информации об объектах недвижимости (аренда и продажа), хранения мультимедийных материалов в удаленной базе данных PostgreSQL и дальнейшей работы "TopRealEstateBot" в Telegram.</p>
-        
-        <h3>1. Структура интерфейса и навигация</h3>
-        <ul>
-            <li><b>Категории сделок:</b> Главные вкладки программы разделяют объекты на <b>«Аренда (Rent)»</b> и <b>«Продажа (Sales)»</b>.</li>
-            <li><b>Типы недвижимости:</b> Внутри каждой категории подразделами выступают <b>«Квартиры (Apartments)»</b> и <b>«Дома (Houses)»</b>.</li>
-            <li><b>Комнатность:</b> Объекты распределены по вкладкам от <b>1-комн.</b> до <b>5-комн.</b></li>
-            <li><b>Строка быстрого поиска:</b> Расположена в верхней части слева. Позволяет мгновенно находить и фильтровать объекты в таблицах в режиме реального времени по введенному району или ориентиру (поддерживает несколько ключевых слов через пробел).</li>
-        </ul>
-        
-        <h3>2. Управление данными (Панель ввода справа)</h3>
-        <ul>
-            <li><b>✨ Создать:</b> Разблокирует поля ввода для добавления нового объекта. После заполнения полей нажмите <b>«Сохранить»</b>. <i>Подсказка:</i> поддерживается быстрая вставка скопированных строк из буфера обмена с помощью комбинации клавиш `Ctrl + V`.</li>
-            <li><b>✏️ Изменить:</b> Позволяет отредактировать существующий объект. Отметьте нужную строку галочкой (`CheckBox`) в таблице, нажмите <b>«Изменить»</b>, внесите корректировки в панели справа и сохраните результат. Одновременно можно редактировать только одну запись.</li>
-            <li><b>💾 Сохранить:</b> Фиксирует добавленные или измененные данные в удаленной базе данных PostgreSQL (хост: `37.187.139.87`). Процесс сопровождается статус-баром.</li>
-            <li><b>📁 М-Файлы (Прикрепление медиа):</b> Позволяет загрузить фотографии и видео к выбранному объекту. 
-                <ul>
-                    <li><b>Жесткий лимит:</b> Суммарный размер прикрепляемых за раз файлов не должен превышать <b>50 МБ</b>. При превышении программа выдает ошибку и блокирует отправку.</li>
-                    <li>Конвертация или сжатие файлов не производятся, файлы сохраняются в исходном качестве в бинарном формате (`BYTEA`) в базе данных.</li>
-                </ul>
-            </li>
-            <li><b>🖼️ Встроенный Медиа-просмотрщик:</b> Чтобы просмотреть фото или видео, дважды кликните (`Double Click`) по ячейке в колонке <b>«Медиа»</b> нужного объекта в таблице. В открывшемся окне можно листать файлы кнопками «Назад» / «Вперед» и управлять воспроизведением видео.</li>
-            <li><b>🗑️ Удалить / Удалить несколько:</b> Переносит выбранные объекты в архив (`archive_ads`) с фиксацией даты и времени удаления, после чего скрывает их из активных таблиц.</li>
-            <li><b>🔄 Сменить пользователя:</b> Кнопка быстрого доступа позволяет завершить текущий сеанс и вернуться к окну авторизации без перезапуска самого приложения.</li>
-        </ul>
-        
-        <h3>3. Инструменты администратора (Вкладка «Tools»)</h3>
-        <p>Доступна только пользователям с ролью <b>admin</b>:</p>
-        <ul>
-            <li><b>📋 Системный журнал (`actions.log`):</b> Просмотр всех действий пользователей и системных ошибок.</li>
-            <li><b>🔄 Управление архивом:</b> Просмотр удаленных объектов и их последующее восстановление обратно в активную базу данных.</li>
-            <li><b>👥 Управление операторами:</b> Добавление новых учетных записей сотрудников и удаление существующих.</li>
-        </ul>
-        
-        <h3>💡 Полезные советы и особенности:</h3>
-        <ol>
-            <li>При переключении между любыми вкладками таблиц все ранее проставленные галочки автоматически сбрасываются для предотвращения случайных массовых операций.</li>
-            <li>Числовые поля (этаж, этажность, цена) проверяются на корректность ввода.</li>
-            <li>Все скачанные из базы медиафайлы кэшируются во временной системной папке сеанса (`rbd_media_cache_*`) и полностью удаляются с компьютера при закрытии программы.</li>
-        </ol>
-
-        <hr style='border: 1px solid #e5e7eb; margin: 20px 0;'>
-        <p><b>Разработчик программы:</b> Кинзябаев Ринат Наильевич<br>
-        <b>E-mail:</b> feniest@gmail.com<br>
-        <b>Тел.:</b> +998(95) 151-6496<br>
-        <b>Версия программы:</b> 3.16</p>
+        <p>Приложение предназначено для учета объектов недвижимости, синхронизации с удаленной БД PostgreSQL и интеграции с ботом в Telegram.</p>
+        <hr style='border: 1px solid #e5e7eb; margin: 15px 0;'>
+        <p><b>Разработчик:</b> Кинзябаев Ринат Наильевич<br><b>E-mail:</b> feniest@gmail.com</p>
         """
-        
         help_text.setHtml(html_content)
         layout.addWidget(help_text)
         parent_tab.setLayout(layout)
@@ -744,10 +638,7 @@ class MainWindow(QMainWindow):
         table.setColumnWidth(1, 145)
         table.setColumnWidth(2, 145)
         table.setColumnWidth(3, 65)
-        if prop_type == "Houses":
-            table.setColumnWidth(4, 100)
-        else:
-            table.setColumnWidth(4, 90)
+        table.setColumnWidth(4, 100 if prop_type == "Houses" else 90)
         table.setColumnWidth(5, 95)
         table.setColumnWidth(6, 110)
         table.setColumnWidth(7, 180)
@@ -822,7 +713,6 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.users_table)
         
         user_btn_layout = QHBoxLayout()
-        user_btn_layout.setContentsMargins(0, 0, 0, 0)
         btn_add_user = QPushButton("➕ Добавить оператора")
         btn_add_user.clicked.connect(self.add_user_dialog)
         btn_del_user = QPushButton("✖️ Удалить выбранного")
@@ -834,23 +724,20 @@ class MainWindow(QMainWindow):
         parent_tab.setLayout(layout)
 
     def switch_user(self):
-        """Метод для горячей смены пользователя без перезапуска процесса программы"""
         reply = QMessageBox.question(
             self, "Смена пользователя", 
-            "Вы действительно хотите завершить текущий сеанс и войти под другой учетной записью?",
+            "Завершить текущий сеанс и войти под другой учетной записью?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
         )
         if reply == QMessageBox.StandardButton.Yes:
-            logging.info(f"Пользователь {self.user_info['username']} инициировал горячую смену пользователя.")
+            logging.info(f"Пользователь {self.user_info['username']} инициировал смену пользователя.")
             self.switch_user_requested = True
-            
             try:
                 if os.path.exists(self.session_temp_dir):
                     shutil.rmtree(self.session_temp_dir)
             except Exception:
                 pass
-            
             self.close()
             
             global auth_global, window_global
@@ -870,24 +757,30 @@ class MainWindow(QMainWindow):
             dlg = ProgressDialog("Обновление", "Подождите, идёт обновление базы данных...", self)
             dlg.show()
             QApplication.processEvents()
+            
+            conn = None
+            cursor = None
             try:
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 cursor.execute("TRUNCATE TABLE ads, archive_ads, ad_media RESTART IDENTITY CASCADE;")
                 conn.commit()
-                cursor.close()
-                conn.close()
                 dlg.close()
-                logging.warning(f"Администратор {self.user_info['username']} произвел ПОЛНУЮ ОЧИСТКУ базы данных на хосте 37.187.139.87!")
+                logging.warning(f"Администратор {self.user_info['username']} произвел полную очистку БД!")
                 QMessageBox.information(self, "Успех", "База данных успешно очищена!")
                 self.load_table_data()
             except Exception as e:
                 dlg.close()
-                logging.error(f"Ошибка при полной очистке базы (хост: 37.187.139.87): {e}")
+                logging.error(f"Ошибка при полной очистке базы: {e}")
                 QMessageBox.critical(self, "Ошибка", f"Не удалось очистить базу: {e}")
+            finally:
+                if cursor:
+                    cursor.close()
+                if conn:
+                    conn.close()
 
     def view_system_logs(self):
-        logging.info(f"Администратор {self.user_info['username']} открыл системный журнал (хост: 37.187.139.87).")
+        logging.info(f"Администратор {self.user_info['username']} открыл системный журнал.")
         if os.path.exists(log_path):
             with open(log_path, "r", encoding="utf-8") as f:
                 content = f.read()
@@ -905,13 +798,13 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Логи", "actions.log пуст.")
 
     def load_users_table(self):
+        conn = None
+        cursor = None
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("SELECT id, username, role FROM users")
             rows = cursor.fetchall()
-            cursor.close()
-            conn.close()
             
             self.users_table.setColumnCount(4)
             self.users_table.setHorizontalHeaderLabels(["ID", "Логин", "Роль", "Выбор"])
@@ -922,7 +815,12 @@ class MainWindow(QMainWindow):
                     self.users_table.setItem(row_idx, col_idx, QTableWidgetItem(str(val)))
                 self.users_table.setCellWidget(row_idx, 3, QCheckBox())
         except Exception as e:
-            logging.error(f"Ошибка загрузки пользователей (хост: 37.187.139.87): {e}")
+            logging.error(f"Ошибка загрузки пользователей: {e}")
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
 
     def add_user_dialog(self):
         dlg = QDialog(self)
@@ -956,23 +854,32 @@ class MainWindow(QMainWindow):
             prog_dlg = ProgressDialog("Обновление", "Подождите, идёт обновление базы данных...", dlg)
             prog_dlg.show()
             QApplication.processEvents()
+            
+            conn = None
+            cursor = None
             try:
                 hashed_pw = hash_password(upass)
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 cursor.execute("INSERT INTO users (username, password, role) VALUES (%s, %s, %s)", (uname, hashed_pw, urole))
                 conn.commit()
-                cursor.close()
-                conn.close()
                 prog_dlg.close()
-                logging.info(f"Администратор {self.user_info['username']} добавил пользователя '{uname}' с ролью '{urole}' (хост: 37.187.139.87).")
+                logging.info(f"Добавлен пользователь '{uname}' с ролью '{urole}'.")
                 QMessageBox.information(dlg, "Успех", f"Пользователь '{uname}' добавлен!")
                 dlg.accept()
                 self.load_users_table()
+            except psycopg2.IntegrityError:
+                prog_dlg.close()
+                QMessageBox.warning(dlg, "Ошибка", "Пользователь с таким логином уже существует!")
             except Exception as e:
                 prog_dlg.close()
-                logging.error(f"Ошибка при добавлении пользователя (хост: 37.187.139.87): {e}")
+                logging.error(f"Ошибка при добавлении пользователя: {e}")
                 QMessageBox.critical(dlg, "Ошибка", f"Не удалось добавить: {e}")
+            finally:
+                if cursor:
+                    cursor.close()
+                if conn:
+                    conn.close()
         btn_save.clicked.connect(save)
         lay.addWidget(btn_save)
         dlg.setLayout(lay)
@@ -992,24 +899,31 @@ class MainWindow(QMainWindow):
         if uname == "admin":
             QMessageBox.warning(self, "Ошибка", "Нельзя удалить главного администратора!")
             return
+            
         if QMessageBox.question(self, "Удаление", f"Удалить '{uname}'?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
             dlg_status = ProgressDialog("Обновление", "Подождите, идёт обновление базы данных...", self)
             dlg_status.show()
             QApplication.processEvents()
+            
+            conn = None
+            cursor = None
             try:
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 cursor.execute("DELETE FROM users WHERE id=%s", (uid,))
                 conn.commit()
-                cursor.close()
-                conn.close()
                 dlg_status.close()
-                logging.info(f"Администратор {self.user_info['username']} удалил пользователя '{uname}' (хост: 37.187.139.87).")
+                logging.info(f"Удален пользователь '{uname}'.")
                 self.load_users_table()
             except Exception as e:
                 dlg_status.close()
-                logging.error(f"Ошибка при удалении пользователя (хост: 37.187.139.87): {e}")
-                QMessageBox.critical(dlg, "Ошибка", f"{e}")
+                logging.error(f"Ошибка при удалении пользователя: {e}")
+                QMessageBox.critical(self, "Ошибка", f"{e}")
+            finally:
+                if cursor:
+                    cursor.close()
+                if conn:
+                    conn.close()
 
     def open_restore_dialog(self):
         dlg = QDialog(self)
@@ -1023,15 +937,20 @@ class MainWindow(QMainWindow):
         table.setHorizontalHeaderLabels(["Объяв-е №", "Категория", "Тип", "Комн.", "Район", "Цена", "Дата удаления", "Выбор"])
         table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         
+        conn = None
+        cursor = None
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("SELECT ad_number, category, property_type, rooms, district, price, deleted_at FROM archive_ads")
             rows = cursor.fetchall()
-            cursor.close()
-            conn.close()
         except Exception:
             rows = []
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
             
         table.setRowCount(len(rows))
         for r_idx, r_dat in enumerate(rows):
@@ -1053,31 +972,37 @@ class MainWindow(QMainWindow):
             prog_dlg = ProgressDialog("Обновление", "Подождите, идёт обновление базы данных...", dlg)
             prog_dlg.show()
             QApplication.processEvents()
+            
+            r_conn = None
+            r_cursor = None
             try:
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                cursor.execute("SELECT category, property_type, rooms, district, landmark, area, floor, floors_total, price FROM archive_ads WHERE ad_number=%s", (sel,))
-                rec = cursor.fetchone()
+                r_conn = get_db_connection()
+                r_cursor = r_conn.cursor()
+                r_cursor.execute("SELECT category, property_type, rooms, district, landmark, area, floor, floors_total, price FROM archive_ads WHERE ad_number=%s", (sel,))
+                rec = r_cursor.fetchone()
                 if rec:
                     cat, p_type, r_val, dist, land, area_v, floor_v, f_tot, price_v = rec
-                    cursor.execute('''
+                    r_cursor.execute('''
                         INSERT INTO ads (ad_number, category, property_type, rooms, district, landmark, area, floor, floors_total, price, is_active)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1)
                         ON CONFLICT (ad_number) DO UPDATE SET is_active=1
                     ''', (sel, cat, p_type, r_val, dist, land, area_v, floor_v, f_tot, price_v))
-                    cursor.execute("DELETE FROM archive_ads WHERE ad_number=%s", (sel,))
-                    conn.commit()
-                    cursor.close()
-                    conn.close()
+                    r_cursor.execute("DELETE FROM archive_ads WHERE ad_number=%s", (sel,))
+                    r_conn.commit()
                     prog_dlg.close()
-                    logging.info(f"Пользователь {self.user_info['username']} восстановил объявление № {sel} (хост: 37.187.139.87).")
+                    logging.info(f"Восстановлено объявление № {sel}.")
                     QMessageBox.information(dlg, "Успех", f"Запись № {sel} восстановлена!")
                     dlg.accept()
                     self.load_table_data()
             except Exception as e:
                 prog_dlg.close()
-                logging.error(f"Ошибка при восстановлении (хост: 37.187.139.87): {e}")
+                logging.error(f"Ошибка при восстановлении: {e}")
                 QMessageBox.critical(dlg, "Ошибка", f"{e}")
+            finally:
+                if r_cursor:
+                    r_cursor.close()
+                if r_conn:
+                    r_conn.close()
 
         btn = QPushButton("🔄 Восстановить выбранную запись")
         btn.clicked.connect(restore)
@@ -1149,17 +1074,17 @@ class MainWindow(QMainWindow):
                 media_list = []
 
         if not media_list:
-            dlg_status = ProgressDialog("Загрузка", "Подождите, идёт загрузка данных в просмотрщик Медиа-файлов...", self)
+            dlg_status = ProgressDialog("Загрузка", "Подождите, идёт загрузка данных в просмотрщик медиафайлов...", self)
             dlg_status.show()
             QApplication.processEvents()
             
+            conn = None
+            cursor = None
             try:
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 cursor.execute("SELECT file_name, file_data FROM ad_media WHERE ad_number=%s", (ad_num,))
                 rows = cursor.fetchall()
-                cursor.close()
-                conn.close()
                 dlg_status.close()
 
                 if not rows:
@@ -1176,6 +1101,11 @@ class MainWindow(QMainWindow):
                 dlg_status.close()
                 QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить медиафайлы: {e}")
                 return
+            finally:
+                if cursor:
+                    cursor.close()
+                if conn:
+                    conn.close()
 
         if media_list:
             dlg = ImageViewerDialog(media_list, ad_num, self)
@@ -1264,6 +1194,8 @@ class MainWindow(QMainWindow):
         dlg_status.show()
         QApplication.processEvents()
 
+        conn = None
+        cursor = None
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
@@ -1273,14 +1205,17 @@ class MainWindow(QMainWindow):
                 ON CONFLICT (ad_number) DO UPDATE SET district=%s, landmark=%s, floor=%s, floors_total=%s, price=%s, is_active=1
             ''', (ad_num, "Rent", "Apartments", rooms, district, landmark, fa, ft, pr, district, landmark, fa, ft, pr))
             conn.commit()
-            cursor.close()
-            conn.close()
             dlg_status.close()
             QMessageBox.information(self, "Успех", "Данные успешно сохранены!")
             self.load_table_data()
         except Exception as e:
             dlg_status.close()
             QMessageBox.critical(self, "Ошибка БД", f"{e}")
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
 
         for field in self.inputs.values():
             field.clear()
@@ -1321,6 +1256,8 @@ class MainWindow(QMainWindow):
         dlg_status.show()
         QApplication.processEvents()
 
+        conn = None
+        cursor = None
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
@@ -1336,14 +1273,17 @@ class MainWindow(QMainWindow):
                 QApplication.processEvents()
                 
             conn.commit()
-            cursor.close()
-            conn.close()
             dlg_status.close()
             QMessageBox.information(self, "Успех", "Файлы успешно загружены!")
             self.load_table_data()
         except Exception as e:
             dlg_status.close()
             QMessageBox.critical(self, "Ошибка", f"{e}")
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
 
     def delete_records(self):
         rooms_list = ["1-room", "2-room", "3-room", "4-room", "5-room"]
@@ -1365,6 +1305,9 @@ class MainWindow(QMainWindow):
             dlg_status = ProgressDialog("Обновление", "Обновление базы данных...", self)
             dlg_status.show()
             QApplication.processEvents()
+            
+            conn = None
+            cursor = None
             try:
                 conn = get_db_connection()
                 cursor = conn.cursor()
@@ -1380,14 +1323,17 @@ class MainWindow(QMainWindow):
                     ''', (checked[0], c, pt, r_v, d, l, a, fl, ft, pr, now_str))
                 cursor.execute("UPDATE ads SET is_active=0 WHERE ad_number=%s", (checked[0],))
                 conn.commit()
-                cursor.close()
-                conn.close()
                 dlg_status.close()
                 QMessageBox.information(self, "Успех", "Объявление удалено в архив!")
                 self.load_table_data()
             except Exception as e:
                 dlg_status.close()
                 QMessageBox.critical(self, "Ошибка", f"{e}")
+            finally:
+                if cursor:
+                    cursor.close()
+                if conn:
+                    conn.close()
 
     def delete_multiple_records(self):
         rooms_list = ["1-room", "2-room", "3-room", "4-room", "5-room"]
@@ -1410,6 +1356,9 @@ class MainWindow(QMainWindow):
             dlg_status = ProgressDialog("Обновление", "Обновление базы данных...", self)
             dlg_status.show()
             QApplication.processEvents()
+            
+            conn = None
+            cursor = None
             try:
                 conn = get_db_connection()
                 cursor = conn.cursor()
@@ -1426,31 +1375,41 @@ class MainWindow(QMainWindow):
                         ''', (ad, c, pt, r_v, d, l, a, fl, ft, pr, now_str))
                     cursor.execute("UPDATE ads SET is_active=0 WHERE ad_number=%s", (ad,))
                 conn.commit()
-                cursor.close()
-                conn.close()
                 dlg_status.close()
                 QMessageBox.information(self, "Успех", f"Удалено записей: {len(checked)}")
                 self.load_table_data()
             except Exception as e:
                 dlg_status.close()
                 QMessageBox.critical(self, "Ошибка", f"{e}")
+            finally:
+                if cursor:
+                    cursor.close()
+                if conn:
+                    conn.close()
 
     def load_table_data(self):
+        conn = None
+        cursor = None
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
             rooms_list = ["1-room", "2-room", "3-room", "4-room", "5-room"]
             categories = [("Rent", "Apartments"), ("Rent", "Houses"), ("Sales", "Apartments"), ("Sales", "Houses")]
             
+            # Безопасный запрос с корректной сортировкой числовых/текстовых номеров объявлений
+            query_str = """
+                SELECT ad_number, district, landmark, rooms, floor, floors_total, price 
+                FROM ads 
+                WHERE category=%s AND property_type=%s AND rooms=%s AND is_active=1 
+                ORDER BY NULLIF(regexp_replace(ad_number, '\\D', '', 'g'), '')::integer ASC NULLS LAST, ad_number ASC
+            """
+            
             for cat, pt in categories:
                 for r in rooms_list:
                     tbl = getattr(self, f"table_{cat}_{pt}_{r}", None)
                     if tbl:
                         r_val = r.replace("-room", "").strip()
-                        cursor.execute(
-                            "SELECT ad_number, district, landmark, rooms, floor, floors_total, price FROM ads WHERE category=%s AND property_type=%s AND rooms=%s AND is_active=1 ORDER BY ad_number::integer ASC, ad_number ASC",
-                            (cat, pt, r_val)
-                        )
+                        cursor.execute(query_str, (cat, pt, r_val))
                         rows = cursor.fetchall()
                         tbl.setRowCount(len(rows))
                         for r_idx, r_data in enumerate(rows):
@@ -1474,12 +1433,14 @@ class MainWindow(QMainWindow):
                             media_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
                             tbl.setCellWidget(r_idx, 7, media_label)
                             tbl.setCellWidget(r_idx, 8, QCheckBox())
-            cursor.close()
-            conn.close()
         except Exception as e:
             logging.error(f"Ошибка загрузки данных таблиц: {e}")
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
 
-# Глобальные ссылки для организации бесконечного цикла авторизации/смены пользователя
 auth_global = None
 window_global = None
 
@@ -1497,7 +1458,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Ошибка инициализации БД: {e}")
 
-    # Запускаем цикл входа/смены пользователя
     while True:
         auth_global = AuthWindow()
         if auth_global.exec() == QDialog.DialogCode.Accepted and auth_global.user_data:
