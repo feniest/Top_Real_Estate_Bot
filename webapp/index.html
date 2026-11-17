@@ -544,14 +544,11 @@
         function updateMediaView() {
             const imgEl = document.getElementById('activeImageElement');
             const videoEl = document.getElementById('activeVideoElement');
-            const sourceEl = document.getElementById('videoSourceElement');
             const counterEl = document.getElementById('mediaCounter');
 
             if (videoEl) {
                 videoEl.pause();
                 videoEl.currentTime = 0;
-                videoEl.src = "";
-                videoEl.load();
             }
 
             if (currentMediaItems.length > 0) {
@@ -567,6 +564,7 @@
                 }
 
                 const lowerUrl = mediaUrl.toLowerCase();
+                
                 const isVideo = mediaType.includes('video') || 
                                 lowerUrl.includes('.mp4') || 
                                 lowerUrl.includes('.mov') || 
@@ -574,16 +572,21 @@
                                 lowerUrl.includes('.mkv') || 
                                 lowerUrl.includes('.webm') || 
                                 lowerUrl.includes('.m4v') ||
-                                lowerUrl.includes('/video/');
+                                lowerUrl.includes('/video/') ||
+                                lowerUrl.includes('media/');
 
                 if (isVideo) {
                     imgEl.style.display = 'none';
-                    videoEl.style.display = 'block';
+                    imgEl.src = '';
                     
+                    videoEl.style.display = 'block';
                     videoEl.src = mediaUrl;
                     videoEl.load();
+                    videoEl.play().catch(err => console.log("Автозапуск видео:", err));
                 } else {
                     videoEl.style.display = 'none';
+                    videoEl.src = '';
+                    
                     imgEl.style.display = 'block';
                     imgEl.src = mediaUrl;
                 }
@@ -591,6 +594,7 @@
                 counterEl.innerText = `${currentMediaIdx + 1} из ${currentMediaItems.length}`;
             } else {
                 videoEl.style.display = 'none';
+                videoEl.src = '';
                 imgEl.style.display = 'block';
                 imgEl.src = '';
                 counterEl.innerText = '0 из 0';
