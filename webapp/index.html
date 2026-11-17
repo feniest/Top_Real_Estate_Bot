@@ -528,7 +528,7 @@
             demoPanel.innerHTML = `
                 <div class="detail-view">
                     
-                    <!-- Просмотрщик (увеличена высота до 175px, тонкая рамка 0.5px) -->
+                    <!-- Просмотрщик (высота 175px, тонкая рамка 0.5px) -->
                     <div style="background: #000; border-radius: 6px; overflow: hidden; margin-bottom: 3px; flex-shrink: 0; border: 0.5px solid #d1d5db;">
                         <div style="width: 100%; height: 175px; display: flex; align-items: center; justify-content: center; background: #111;">
                             <img id="activeMediaElement" src="${mediaItems[0].url || mediaItems[0]}" style="max-width: 100%; max-height: 100%; object-fit: contain;" alt="media">
@@ -540,7 +540,7 @@
                         </div>
                     </div>
 
-                    <!-- Карточка объекта (уменьшены внутренние отступы и вертикальные отступы строк для компактности, тонкая рамка 0.5px) -->
+                    <!-- Карточка объекта (тонкая рамка 0.5px) -->
                     <div class="stat-card" style="margin-bottom: 3px; flex-shrink: 0; padding: 5px 8px; border: 0.5px solid #d1d5db;">
                         <h3 style="margin-bottom: 2px; font-size: 12px;">Информация о ${objNameFull}</h3>
                         <div class="stat-row" style="margin-bottom: 2px;"><span class="stat-label">Район:</span><span class="stat-value">${obj.district || '—'}</span></div>
@@ -586,9 +586,10 @@
                 tg.showAlert(`Объект успешно добавлен в избранное! ⭐`);
             });
 
+            // Активированная кнопка возврата к списку
             document.getElementById('btnBackToList').addEventListener('click', () => {
                 switchView('catalog');
-                fetchAndShowCatalog();
+                renderObjectsList();
             });
 
             document.getElementById('btnCallRealtor').addEventListener('click', () => {
