@@ -6,9 +6,9 @@ from psycopg2.extras import RealDictCursor
 from fastapi import FastAPI, Query, Request
 from fastapi.responses import HTMLResponse
 import uvicorn
-from aiogram import Bot, Dispatcher
-from aiogram.types import Message, WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.filters import CommandStart
+from aiogram import Bot, Dispatcher, F
+from aiogram.types import Message, WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto, BufferedInputFile
+from aiogram.filters import CommandStart, Command
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -38,6 +38,37 @@ def get_connection():
         host=os.getenv("DB_HOST", "localhost"),
         port=os.getenv("DB_PORT", "5432")
     )
+
+def get_object_by_number(ad_number: str):
+    """Получает полную информацию об объекте по его номеру"""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("SELECT * FROM ads WHERE ad_number = %s", (ad_number,))
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        return row
+    except Exception as e:
+        logger.error(f"⚠️ Ошибка получения объекта {ad_number}: {e}")
+        return None
+
+def get_ad_media(ad_number: str):
+    """Возвращает список медиафайлов (имя и бинарные данные) для объекта из таблицы ad_media"""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute(
+            "SELECT file_name, file_data FROM ad_media WHERE ad_number = %s", 
+            (ad_number,)
+        )
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return rows
+    except Exception as e:
+        logger.error(f"⚠️ Ошибка получения медиа для объекта {ad_number}: {e}")
+        return []
 
 def get_districts():
     """Возвращает список уникальных районов только по активным объявлениям (is_active = 1)"""
@@ -178,7 +209,6 @@ def get_filtered_objects(
             query += " AND district = %s"
             params.append(district)
 
-        # Жесткая сортировка по числовому значению номера объявления
         query += r" ORDER BY NULLIF(regexp_replace(ad_number, '\D', '', 'g'), '')::integer ASC, ad_number ASC;"
 
         cursor.execute(query, params)
@@ -271,9 +301,72 @@ async def cmd_start(message: Message):
     
     await message.answer(
         "👋 Добро пожаловать!\n\n"
-        "Нажмите на кнопку ниже, чтобы открыть панель управления и статистику:",
+        "Нажмите на кнопку ниже, чтобы открыть панель управления и статистику,\n"
+        "или введите команду получения объекта, например: `/object 101`",
         reply_markup=keyboard
     )
+
+@dp.message(Command("object"))
+async def cmd_get_object(message: Message):
+    """Команда для запроса объекта по номеру, например: /object 12"""
+    args = message.text.split(maxsplit=1)
+    if len(args) < 2:
+        await message.answer("⚠️ Пожалуйста, укажите номер объекта. Пример: `/object 12`", parse_mode="Markdown")
+        return
+    
+    ad_number = args[1].strip()
+    obj_data = get_object_by_number(ad_number)
+    
+    if not obj_data:
+        await message.answer(f"❌ Объект с номером **{ad_number}** не найден в базе данных.", parse_mode="Markdown")
+        return
+
+    # Формируем текст описания карточки
+    prop_type_label = "Квартира" if obj_data.get("property_type") == "Apartments" else "Дом / участок"
+    description = (
+        f"🏢 **Объект № {obj_data.get('ad_number')}**\n"
+        f"📂 Категория: {obj_data.get('category')}\n"
+        f"🏠 Тип: {prop_type_label}\n"
+        f"🚪 Комнат: {obj_data.get('rooms')}\n"
+        f"📍 Район: {obj_data.get('district')}\n"
+        f"🏷 Ориентир: {obj_data.get('landmark', 'Не указан')}\n"
+        f"📐 Площадь: {obj_data.get('area')} кв.м.\n"
+        f"🏢 Этаж: {obj_data.get('floor')} / {obj_data.get('floors_total')}\n"
+        f"💰 Цена: **{obj_data.get('price')} у.е.**"
+    )
+
+    # Получаем медиафайлы из таблицы ad_media
+    media_rows = get_ad_media(ad_number)
+
+    if media_rows:
+        media_group = []
+        # Telegram позволяет отправлять альбомы до 10 штук за раз
+        for idx, row in enumerate(media_rows[:10]):
+            try:
+                file_bytes = bytes(row['file_data'])
+                file_name = row['file_name'] or f"photo_{idx}.jpg"
+                
+                input_file = BufferedInputFile(file_bytes, filename=file_name)
+                
+                # Текст подпись добавляем только к первому файлу альбома
+                caption = description if idx == 0 else None
+                parse_mode = "Markdown" if idx == 0 else None
+                
+                media_group.append(
+                    InputMediaPhoto(media=input_file, caption=caption, parse_mode=parse_mode)
+                )
+            except Exception as ex:
+                logger.error(f"Ошибка обработки медиафайла для объекта {ad_number}: {ex}")
+
+        if media_group:
+            try:
+                await message.answer_media_group(media=media_group)
+                return
+            except Exception as e:
+                logger.error(f"Ошибка отправки медиа-группы в Telegram: {e}")
+
+    # Если картинок нет или произошла ошибка отправки альбома, шлем текстом
+    await message.answer(description, parse_mode="Markdown")
 
 
 # --- Запуск ---
