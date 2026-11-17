@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 # Получение токена и URL из переменных окружения
 BOT_TOKEN = os.getenv("BOT_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("TOKEN")
-WEBAPP_URL = os.getenv("WEBAPP_URL", "https://your-app.fadehost.app")
+WEBAPP_URL = os.getenv("WEBAPP_URL", "https://toprealestatebot.fadehost.app")
 
 if not BOT_TOKEN:
     logger.error("❌ Не найден токен бота в переменных окружения!")
