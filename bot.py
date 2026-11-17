@@ -40,14 +40,14 @@ def get_connection():
     )
 
 def get_districts():
-    """Возвращает список уникальных районов из таблицы ads"""
+    """Возвращает список уникальных районов только по активным объявлениям (is_active = 1)"""
     try:
         conn = get_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         cursor.execute("""
             SELECT DISTINCT district 
             FROM ads 
-            WHERE district IS NOT NULL AND district != '' 
+            WHERE is_active = 1 AND district IS NOT NULL AND district != '' 
             ORDER BY district;
         """)
         rows = cursor.fetchall()
@@ -64,7 +64,7 @@ def get_market_statistics(
     rooms: str = None,
     district: str = None
 ):
-    """Возвращает детальную статистику по категориям с учетом фильтров и приведением типов"""
+    """Возвращает детальную статистику по активным объявлениям (is_active = 1) с учетом фильтров"""
     try:
         conn = get_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -82,7 +82,7 @@ def get_market_statistics(
                 MAX(price) as max_price,
                 ROUND(AVG(price)::numeric, 0) as avg_price
             FROM ads
-            WHERE 1=1
+            WHERE is_active = 1
         """
         params = []
 
@@ -186,10 +186,8 @@ async def cmd_start(message: Message):
 # --- Запуск ---
 
 async def run_fastapi():
-    # Читаем порт из переменной окружения FadeHost (по умолчанию 8080)
-    PORT = int(os.getenv("PORT", 8080))
-    
-    config = uvicorn.Config(app, host="0.0.0.0", port=PORT, log_level="info")
+    port = int(os.getenv("PORT", 8080))
+    config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info")
     server = uvicorn.Server(config)
     await server.serve()
 
