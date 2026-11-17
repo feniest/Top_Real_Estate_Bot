@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Статистика недвижимости</title>
+    <title>Статистика и каталог недвижимости</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
@@ -99,8 +99,8 @@
             font-size: 11px;
         }
 
-        /* Стили для выпадающего списка районов (ComboBox) */
-        .district-select {
+        /* Стили для выпадающих списков (Районы, Сортировка) */
+        .select-field {
             flex: 1;
             padding: 8px 10px;
             font-size: 13px;
@@ -114,7 +114,7 @@
             text-align: center;
         }
         
-        .district-select option {
+        .select-field option {
             background: var(--card-bg);
             color: var(--text-color);
         }
@@ -123,6 +123,7 @@
         .stats-container {
             display: flex;
             gap: 10px;
+            margin-bottom: 12px;
         }
 
         .stat-card {
@@ -172,11 +173,69 @@
             border-top: 1px dashed #e5e7eb;
             margin: 8px 0;
         }
+
+        /* Секция каталога объектов */
+        .catalog-section {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            display: none; /* Скрыто до нажатия кнопки "Показать" */
+        }
+
+        .catalog-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 8px;
+        }
+
+        .catalog-header h3 {
+            margin: 0;
+            font-size: 15px;
+            color: var(--accent-color);
+        }
+
+        /* Карточка отдельного объекта недвижимости */
+        .object-card {
+            background: var(--bg-color);
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        .object-card:last-child {
+            margin-bottom: 0;
+        }
+
+        .object-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--text-color);
+        }
+
+        .object-details {
+            display: flex;
+            justify-content: space-between;
+            color: var(--hint-color);
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+
+        .object-price {
+            font-weight: 700;
+            color: var(--accent-color);
+            text-align: right;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
 
-    <!-- Верхнее окошко: Панель управления -->
+    <!-- Панель управления (фильтры) -->
     <div class="control-panel">
         <!-- Ряд 1: Аренда / Продажа -->
         <div class="button-row">
@@ -199,17 +258,17 @@
             <button class="filter-btn" data-group="rooms" data-value="5+">5+ комн.</button>
         </div>
 
-        <!-- Ряд 4: Кнопка "Показать", "Все Районы" + ComboBox -->
+        <!-- Ряд 4: Кнопка "Показать", "Все Районы" + ComboBox Районов -->
         <div class="button-row">
             <button class="filter-btn action-btn" id="btnShow" disabled>Показать</button>
             <button class="filter-btn active" id="btnAllDistricts" data-value="all">Все Районы</button>
-            <select id="districtSelect" class="district-select">
+            <select id="districtSelect" class="select-field">
                 <option value="all">Выберите район...</option>
             </select>
         </div>
     </div>
 
-    <!-- Основное рабочее окно: Карточки статистики -->
+    <!-- Карточки статистики -->
     <div class="stats-container">
         <!-- Карточка: Аренда -->
         <div class="stat-card" id="card-rent">
@@ -242,6 +301,21 @@
         </div>
     </div>
 
+    <!-- Секция каталога объектов (появляется по кнопке "Показать") -->
+    <div class="catalog-section" id="catalogSection">
+        <div class="catalog-header">
+            <h3 id="catalogTitle">Список объектов</h3>
+            <!-- Выпадающий список сортировки по цене -->
+            <select id="sortSelect" class="select-field" style="max-width: 160px; padding: 4px 8px; font-size: 12px;">
+                <option value="asc">Сначала дешевле</option>
+                <option value="desc">Сначала дороже</option>
+            </select>
+        </div>
+        <div id="objectsListContainer">
+            <!-- Сюда динамически добавятся карточки объектов -->
+        </div>
+    </div>
+
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
@@ -253,17 +327,18 @@
             district: 'all'
         };
 
-        // Проверка доступности кнопки "Показать":
-        // Кнопка активна ТОЛЬКО если выбрана ровно одна категория И выбрано количество комнат
+        // Хранилище загруженного списка объектов для сортировки «на лету»
+        let loadedObjects = [];
+
+        // Проверка активности кнопки "Показать" (Категория + Комнаты)
         function updateShowButtonState() {
             const btnShow = document.getElementById('btnShow');
             const hasCategory = currentFilters.category !== null;
             const hasRooms = currentFilters.rooms !== null;
-
             btnShow.disabled = !(hasCategory && hasRooms);
         }
 
-        // Локальное управление видимостью карточек (затухание неподходящей категории)
+        // Затухание неактивной карточки статистики
         function updateCardsVisibility() {
             const rentCard = document.getElementById('card-rent');
             const saleCard = document.getElementById('card-sale');
@@ -287,7 +362,6 @@
                 const select = document.getElementById('districtSelect');
                 
                 select.innerHTML = '<option value="all">Выберите район...</option>';
-                
                 districts.forEach(d => {
                     const opt = document.createElement('option');
                     opt.value = d;
@@ -299,6 +373,7 @@
             }
         }
 
+        // Обновление цифр в карточках статистики
         async function fetchAndUpdateStats() {
             try {
                 const params = new URLSearchParams();
@@ -336,7 +411,72 @@
             document.getElementById(`${prefix}-avg`).innerText = Number(stats.avg_price || 0).toLocaleString();
         }
 
-        // Обработка кликов по кнопкам (Категория, Тип, Комнаты)
+        // Отрисовка списка объектов в каталоге
+        function renderObjectsList() {
+            const container = document.getElementById('objectsListContainer');
+            container.innerHTML = '';
+
+            if (loadedObjects.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: var(--hint-color); padding: 10px; font-size: 13px;">Объекты не найдены</div>';
+                return;
+            }
+
+            // Получаем направление сортировки (asc - от мин к макс, desc - от макс к мин)
+            const sortOrder = document.getElementById('sortSelect').value;
+            
+            // Сортируем массив объектов по цене
+            const sorted = [...loadedObjects].sort((a, b) => {
+                const priceA = Number(a.price || 0);
+                const priceB = Number(b.price || 0);
+                return sortOrder === 'asc' ? priceA - priceB : priceB - priceA;
+            });
+
+            // Формируем карточки
+            sorted.forEach(obj => {
+                const card = document.createElement('div');
+                card.className = 'object-card';
+                
+                card.innerHTML = `
+                    <div class="object-title">${obj.title || 'Объект недвижимости'}</div>
+                    <div class="object-details">
+                        <span>Район: ${obj.district || 'Не указан'} | ${obj.rooms || '-'} комн.</span>
+                        <span>${obj.area ? obj.area + ' м²' : ''}</span>
+                    </div>
+                    <div class="object-price">${Number(obj.price || 0).toLocaleString()} ${obj.currency || 'сум'}</div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Запрос полного списка объектов с бэкенда при нажатии "Показать"
+        async function fetchAndShowObjects() {
+            try {
+                const params = new URLSearchParams();
+                if (currentFilters.category) params.append('category', currentFilters.category);
+                if (currentFilters.prop_type) params.append('prop_type', currentFilters.prop_type);
+                if (currentFilters.rooms) params.append('rooms', currentFilters.rooms);
+                if (currentFilters.district && currentFilters.district !== 'all') {
+                    params.append('district', currentFilters.district);
+                }
+
+                // Предполагается эндпоинт /api/objects, возвращающий массив объектов
+                const response = await fetch(`/api/objects?${params.toString()}`);
+                loadedObjects = await response.json();
+
+                // Показываем блок каталога
+                document.getElementById('catalogSection').style.display = 'block';
+                
+                // Рендерим карточки с учетом выбранной сортировки
+                renderObjectsList();
+
+                // Плавная прокрутка к списку объектов
+                document.getElementById('catalogSection').scrollIntoView({ behavior: 'smooth' });
+            } catch (e) {
+                console.error("Ошибка загрузки списка объектов:", e);
+            }
+        }
+
+        // Обработка кликов по фильтрам
         document.querySelectorAll('.filter-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 if (btn.id === 'btnAllDistricts' || btn.id === 'btnShow') return;
@@ -355,7 +495,7 @@
                 }
 
                 updateShowButtonState();
-                fetchAndUpdateStats(); // Мгновенный пересчёт статистики
+                fetchAndUpdateStats();
             });
         });
 
@@ -367,7 +507,7 @@
             currentFilters.district = 'all';
             
             updateShowButtonState();
-            fetchAndUpdateStats(); // Мгновенный пересчёт статистики
+            fetchAndUpdateStats();
         });
 
         // Выпадающий список районов
@@ -383,15 +523,20 @@
                 btnAll.classList.add('active');
             }
 
-            updateShowButtonState();
-            fetchAndUpdateStats(); // Мгновенный пересчёт статистики
+                updateShowButtonState();
+                fetchAndUpdateStats();
         });
 
-        // Нажатие на кнопку "Показать" (готово к подключению списка карточек объектов)
+        // Кнопка "Показать"
         document.getElementById('btnShow').addEventListener('click', () => {
             if (currentFilters.category && currentFilters.rooms) {
-                fetchAndUpdateStats();
+                fetchAndShowObjects();
             }
+        });
+
+        // Изменение сортировки цены обновляет список мгновенно без повторного запроса к серверу
+        document.getElementById('sortSelect').addEventListener('change', () => {
+            renderObjectsList();
         });
 
         loadDistricts();
