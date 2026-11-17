@@ -4,7 +4,7 @@ import asyncio
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from fastapi import FastAPI, Query, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 import uvicorn
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto, InputMediaVideo, BufferedInputFile
@@ -218,13 +218,18 @@ def get_filtered_objects(
         
         results = []
         for r in rows:
+            ad_num = r.get("ad_number")
             type_label = "Квартира" if r.get("property_type") == "Apartments" else "Дом / участок"
-            title_text = f"№ {r.get('ad_number')} • {r.get('rooms')}-комн. ({type_label})"
+            title_text = f"№ {ad_num} • {r.get('rooms')}-комн. ({type_label})"
             if r.get("landmark"):
                 title_text += f" — {r.get('landmark')}"
                 
+            # 🟢 Генерируем ссылки для веб-приложения на основе таблицы ad_media
+            media_rows = get_ad_media(ad_num)
+            media_urls = [f"/api/media/{ad_num}/{i}" for i in range(len(media_rows))] if media_rows else []
+
             results.append({
-                "ad_number": r.get("ad_number"),
+                "ad_number": ad_num,
                 "title": title_text,
                 "district": r.get("district"),
                 "landmark": r.get("landmark"),
@@ -233,7 +238,8 @@ def get_filtered_objects(
                 "floor": r.get("floor"),
                 "floors_total": r.get("floors_total"),
                 "price": r.get("price"),
-                "currency": "у.е."
+                "currency": "у.е.",
+                "media": media_urls  # 👈 Добавлено поле с URL картинок для веб-приложения
             })
         return results
     except Exception as e:
@@ -275,6 +281,20 @@ def api_get_objects(
         district=district
     )
 
+@app.get("/api/media/{ad_number}/{index}")
+def api_get_media_file(ad_number: str, index: int):
+    """Эндпоинт для отдачи картинок/видео в веб-приложение из базы данных"""
+    media_rows = get_ad_media(ad_number)
+    if not media_rows or index >= len(media_rows):
+        return Response(status_code=404)
+    
+    row = media_rows[index]
+    file_bytes = bytes(row['file_data'])
+    file_name = (row['file_name'] or "").lower()
+    
+    content_type = "video/mp4" if file_name.endswith(('.mp4', '.mov', '.avi', '.mkv', '.webm')) else "image/jpeg"
+    return Response(content=file_bytes, media_type=content_type)
+
 @app.get("/", response_class=HTMLResponse)
 def serve_webapp(request: Request):
     index_path = os.path.join("webapp", "index.html")
@@ -308,7 +328,7 @@ async def cmd_start(message: Message):
 
 @dp.message(Command("object"))
 async def cmd_get_object(message: Message):
-    """Команда для запроса объекта по номеру, например: /object 1"""
+    """Команда для запроса объекта по номеру в чат бота (работает как и раньше)"""
     args = message.text.split(maxsplit=1)
     if len(args) < 2:
         await message.answer("⚠️ Пожалуйста, укажите номер объекта. Пример: `/object 1`", parse_mode="Markdown")
@@ -342,7 +362,6 @@ async def cmd_get_object(message: Message):
         media_group = []
         video_extensions = ('.mp4', '.mov', '.avi', '.mkv', '.webm')
         
-        # Telegram позволяет отправлять альбомы до 10 штук за раз
         for idx, row in enumerate(media_rows[:10]):
             try:
                 file_bytes = bytes(row['file_data'])
@@ -350,11 +369,9 @@ async def cmd_get_object(message: Message):
                 
                 input_file = BufferedInputFile(file_bytes, filename=row['file_name'] or f"file_{idx}")
                 
-                # Текст подписи добавляем только к первому файлу альбома
                 caption = description if idx == 0 else None
                 parse_mode = "Markdown" if idx == 0 else None
                 
-                # Определяем тип файла: фото или видео
                 if file_name.endswith(video_extensions):
                     media_group.append(
                         InputMediaVideo(media=input_file, caption=caption, parse_mode=parse_mode)
@@ -373,7 +390,6 @@ async def cmd_get_object(message: Message):
             except Exception as e:
                 logger.error(f"Ошибка отправки медиа-группы в Telegram: {e}")
 
-    # Если медиа нет или произошла ошибка, отправляем хотя бы текст
     await message.answer(description, parse_mode="Markdown")
 
 
