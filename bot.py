@@ -64,7 +64,7 @@ def get_market_statistics(
     rooms: str = None,
     district: str = None
 ):
-    """Возвращает детальную статистику по категориям (Rent / Sale) с учетом фильтров"""
+    """Возвращает детальную статистику по категориям с учетом фильтров и приведением типов"""
     try:
         conn = get_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -73,11 +73,11 @@ def get_market_statistics(
             SELECT 
                 category,
                 COUNT(*) as total_count,
-                COUNT(*) FILTER (WHERE rooms = 1) as rooms_1,
-                COUNT(*) FILTER (WHERE rooms = 2) as rooms_2,
-                COUNT(*) FILTER (WHERE rooms = 3) as rooms_3,
-                COUNT(*) FILTER (WHERE rooms = 4) as rooms_4,
-                COUNT(*) FILTER (WHERE rooms >= 5) as rooms_5_plus,
+                COUNT(*) FILTER (WHERE NULLIF(rooms, '')::integer = 1) as rooms_1,
+                COUNT(*) FILTER (WHERE NULLIF(rooms, '')::integer = 2) as rooms_2,
+                COUNT(*) FILTER (WHERE NULLIF(rooms, '')::integer = 3) as rooms_3,
+                COUNT(*) FILTER (WHERE NULLIF(rooms, '')::integer = 4) as rooms_4,
+                COUNT(*) FILTER (WHERE NULLIF(rooms, '')::integer >= 5) as rooms_5_plus,
                 MIN(price) as min_price,
                 MAX(price) as max_price,
                 ROUND(AVG(price)::numeric, 0) as avg_price
@@ -96,9 +96,9 @@ def get_market_statistics(
 
         if rooms and rooms != 'all':
             if rooms == '5+':
-                query += " AND rooms >= 5"
+                query += " AND NULLIF(rooms, '')::integer >= 5"
             else:
-                query += " AND rooms = %s"
+                query += " AND NULLIF(rooms, '')::integer = %s"
                 params.append(int(rooms))
 
         if district and district != 'all':
