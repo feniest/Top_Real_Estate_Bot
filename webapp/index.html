@@ -374,6 +374,7 @@
             <div class="catalog-row-controls">
                 <button class="back-btn" id="btnBackToWelcome">← Фильтры</button>
                 <select id="sortSelect" class="select-field" style="max-width: 140px;">
+                    <option value="default">По умолчанию (№)</option>
                     <option value="asc">Сначала дешевле</option>
                     <option value="desc">Сначала дороже</option>
                 </select>
@@ -519,11 +520,22 @@
             }
 
             const sortOrder = document.getElementById('sortSelect').value;
-            const sorted = [...loadedObjects].sort((a, b) => {
-                const priceA = Number(a.price || 0);
-                const priceB = Number(b.price || 0);
-                return sortOrder === 'asc' ? priceA - priceB : priceB - priceA;
-            });
+            let sorted = [...loadedObjects];
+
+            if (sortOrder === 'asc' || sortOrder === 'desc') {
+                sorted.sort((a, b) => {
+                    const priceA = Number(a.price || 0);
+                    const priceB = Number(b.price || 0);
+                    return sortOrder === 'asc' ? priceA - priceB : priceB - priceA;
+                });
+            } else {
+                // Если выбрано «По умолчанию», сортируем по идентификатору/номеру объекта
+                sorted.sort((a, b) => {
+                    const numA = parseInt((a.id || '').toString().replace(/\D/g, '')) || 0;
+                    const numB = parseInt((b.id || '').toString().replace(/\D/g, '')) || 0;
+                    return numA - numB;
+                });
+            }
 
             sorted.forEach((obj, index) => {
                 const card = document.createElement('div');
