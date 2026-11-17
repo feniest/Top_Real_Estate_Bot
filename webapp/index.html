@@ -26,7 +26,6 @@
             box-sizing: border-box;
         }
 
-        /* Верхнее окошко: Панель управления */
         .control-panel {
             background: var(--card-bg);
             border-radius: 12px;
@@ -67,7 +66,7 @@
             border-color: var(--accent-color);
         }
 
-        /* Специальный компактный ряд для 5 кнопок комнат в одну линию */
+        /* Компактный ряд для 5 кнопок комнат в одну линию */
         .rooms-row {
             display: flex;
             flex-wrap: nowrap;
@@ -82,16 +81,24 @@
             font-size: 11px;
         }
 
+        /* Стили для выпадающего списка районов (ComboBox) */
         .district-select {
-            flex: 2;
+            flex: 1;
             padding: 8px 10px;
             font-size: 13px;
+            font-weight: 500;
             border: 1px solid #d1d5db;
             border-radius: 8px;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            outline: none;
+            cursor: pointer;
+            text-align: center;
+        }
+        
+        .district-select option {
             background: var(--card-bg);
             color: var(--text-color);
-            outline: none;
-            display: none;
         }
 
         /* Основное рабочее окно: Карточки статистики */
@@ -164,12 +171,11 @@
             <button class="filter-btn" data-group="rooms" data-value="5+">5+ комн.</button>
         </div>
 
-        <!-- Ряд 4: Районы -->
+        <!-- Ряд 4: Выбор районов (Все районы + Настоящий ComboBox из СУБД) -->
         <div class="button-row">
-            <button class="filter-btn active" data-group="district_mode" data-value="all">Все Районы</button>
-            <button class="filter-btn" data-group="district_mode" data-value="combo">ComboBox</button>
+            <button class="filter-btn active" id="btnAllDistricts" data-value="all">Все Районы</button>
             <select id="districtSelect" class="district-select">
-                <option value="">Выберите район...</option>
+                <option value="all">Выберите район из базы...</option>
             </select>
         </div>
     </div>
@@ -223,6 +229,10 @@
                 const response = await fetch('/api/districts');
                 const districts = await response.json();
                 const select = document.getElementById('districtSelect');
+                
+                // Очищаем и оставляем дефолтный пункт
+                select.innerHTML = '<option value="all">Выберите район...</option>';
+                
                 districts.forEach(d => {
                     const opt = document.createElement('option');
                     opt.value = d;
@@ -270,41 +280,49 @@
             document.getElementById(`${prefix}-avg`).innerText = Number(stats.avg_price || 0).toLocaleString();
         }
 
+        // Обработка обычных кнопок-фильтров (Аренда, Квартиры, Комнаты)
         document.querySelectorAll('.filter-btn').forEach(btn => {
             btn.addEventListener('click', () => {
+                if (btn.id === 'btnAllDistricts') return; // Кнопка "Все районы" обрабатывается отдельно
+
                 const group = btn.getAttribute('data-group');
                 const value = btn.getAttribute('data-value');
 
-                if (group === 'district_mode') {
-                    document.querySelectorAll('[data-group="district_mode"]').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    
-                    const select = document.getElementById('districtSelect');
-                    if (value === 'combo') {
-                        select.style.display = 'block';
-                        currentFilters.district = select.value || 'all';
-                    } else {
-                        select.style.display = 'none';
-                        currentFilters.district = 'all';
-                    }
-                } else {
-                    const isAlreadyActive = btn.classList.contains('active');
-                    document.querySelectorAll(`[data-group="${group}"]`).forEach(b => b.classList.remove('active'));
+                const isAlreadyActive = btn.classList.contains('active');
+                document.querySelectorAll(`[data-group="${group}"]`).forEach(b => b.classList.remove('active'));
 
-                    if (isAlreadyActive) {
-                        currentFilters[group] = null;
-                    } else {
-                        btn.classList.add('active');
-                        currentFilters[group] = value;
-                    }
+                if (isAlreadyActive) {
+                    currentFilters[group] = null;
+                } else {
+                    btn.classList.add('active');
+                    currentFilters[group] = value;
                 }
 
                 fetchAndUpdateStats();
             });
         });
 
+        // Кнопка "Все Районы" сбрасывает выбор в ComboBox
+        document.getElementById('btnAllDistricts').addEventListener('click', () => {
+            document.getElementById('btnAllDistricts').classList.add('active');
+            const select = document.getElementById('districtSelect');
+            select.value = 'all';
+            currentFilters.district = 'all';
+            fetchAndUpdateStats();
+        });
+
+        // Выбор района через ComboBox
         document.getElementById('districtSelect').addEventListener('change', (e) => {
-            currentFilters.district = e.target.value || 'all';
+            const val = e.target.value;
+            currentFilters.district = val;
+
+            const btnAll = document.getElementById('btnAllDistricts');
+            if (val && val !== 'all') {
+                btnAll.classList.remove('active');
+            } else {
+                btnAll.classList.add('active');
+            }
+
             fetchAndUpdateStats();
         });
 
