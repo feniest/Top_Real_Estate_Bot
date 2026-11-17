@@ -186,7 +186,10 @@ async def cmd_start(message: Message):
 # --- Запуск ---
 
 async def run_fastapi():
-    config = uvicorn.Config(app, host="0.0.0.0", port=8000, log_level="info")
+    # Читаем порт из переменной окружения FadeHost (по умолчанию 8080)
+    PORT = int(os.getenv("PORT", 8080))
+    
+    config = uvicorn.Config(app, host="0.0.0.0", port=PORT, log_level="info")
     server = uvicorn.Server(config)
     await server.serve()
 
