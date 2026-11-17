@@ -26,7 +26,7 @@
             box-sizing: border-box;
         }
 
-        /* Панель фильтрации сверху */
+        /* Панель фильтрации сверху (изначально скрыта до нажатия "Начать подбор") */
         .control-panel {
             background: var(--card-bg);
             border-radius: 12px;
@@ -36,6 +36,7 @@
             position: sticky;
             top: 0;
             z-index: 100;
+            display: none; /* Покажем после клика на "Начать подбор" */
         }
 
         .button-row {
@@ -123,15 +124,39 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
 
+        /* Стартовый экран: Приветствие + Общая статистика + Кнопка подбора */
         .welcome-view {
             text-align: center;
-            padding: 24px 12px;
-            color: var(--hint-color);
+            padding: 4px 0;
         }
         .welcome-view h3 {
             color: var(--accent-color);
-            margin-top: 0;
-            font-size: 18px;
+            margin: 0 0 6px 0;
+            font-size: 17px;
+        }
+        .welcome-view p {
+            color: var(--hint-color);
+            font-size: 13px;
+            margin-bottom: 12px;
+        }
+
+        /* Большая кнопка "Начать подбор" */
+        .start-selection-btn {
+            background: var(--accent-color);
+            color: var(--accent-text);
+            border: none;
+            width: 100%;
+            padding: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-top: 12px;
+            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+            transition: background 0.2s;
+        }
+        .start-selection-btn:hover {
+            background: #1d4ed8;
         }
 
         /* Карточки статистики */
@@ -176,12 +201,10 @@
             display: none;
         }
 
-        /* Ряд 1: Краткая статистика по выбранному объекту */
         .catalog-row-stats {
             margin-bottom: 12px;
         }
 
-        /* Ряд 2: Кнопка возврата и сортировка */
         .catalog-row-controls {
             display: flex;
             justify-content: space-between;
@@ -202,7 +225,6 @@
             white-space: nowrap;
         }
 
-        /* Ряд 3+: Блок со скроллом карточек */
         .catalog-row-scroll {
             max-height: 420px;
             overflow-y: auto;
@@ -251,8 +273,8 @@
 </head>
 <body>
 
-    <!-- Панель управления фильтрацией -->
-    <div class="control-panel">
+    <!-- Панель управления фильтрацией (появляется при начале подбора) -->
+    <div class="control-panel" id="controlPanel">
         <div class="button-row">
             <button class="filter-btn" data-group="category" data-value="Rent">Аренда</button>
             <button class="filter-btn" data-group="category" data-value="Sales">Продажа</button>
@@ -283,16 +305,35 @@
     <!-- Демонстрационная панель -->
     <div class="demo-panel" id="demoPanel">
         
-        <!-- Приветствие (изначальное состояние) -->
+        <!-- Стартовый экран: Приветствие + Статистика + Кнопка подбора -->
         <div class="welcome-view" id="welcomeView">
             <h3>Добро пожаловать!</h3>
-            <p>Укажите категорию и количество комнат в фильтрах сверху, затем нажмите кнопку <b>«Показать»</b> для просмотра каталога.</p>
+            <p>Актуальная аналитика рынка недвижимости на текущий момент:</p>
+            
+            <!-- Ряд со статистикой -->
+            <div class="stats-view" style="margin-bottom: 12px;">
+                <div class="stat-card">
+                    <h3>Аренда</h3>
+                    <div class="stat-row"><span class="stat-label">Объектов:</span><span class="stat-value" id="welcome-rent-count">0</span></div>
+                    <div class="stat-row"><span class="stat-label">Мин. цена:</span><span class="stat-value" id="welcome-rent-min">0</span></div>
+                    <div class="stat-row"><span class="stat-label">Макс. цена:</span><span class="stat-value" id="welcome-rent-max">0</span></div>
+                </div>
+                <div class="stat-card">
+                    <h3>Продажа</h3>
+                    <div class="stat-row"><span class="stat-label">Объектов:</span><span class="stat-value" id="welcome-sale-count">0</span></div>
+                    <div class="stat-row"><span class="stat-label">Мин. цена:</span><span class="stat-value" id="welcome-sale-min">0</span></div>
+                    <div class="stat-row"><span class="stat-label">Макс. цена:</span><span class="stat-value" id="welcome-sale-max">0</span></div>
+                </div>
+            </div>
+
+            <!-- Кнопка перехода к подбору -->
+            <button class="start-selection-btn" id="btnStartSelection">Начать подбор</button>
         </div>
 
         <!-- Каталог объектов (активируется по кнопке "Показать") -->
         <div class="catalog-view" id="catalogView">
             
-            <!-- Ряд 1: Краткая статистика только по выбранной категории -->
+            <!-- Ряд 1: Краткая статистика по выбранной категории -->
             <div class="catalog-row-stats">
                 <div class="stats-view">
                     <div class="stat-card" id="activeStatCard">
@@ -344,8 +385,43 @@
         }
 
         function switchView(viewName) {
-            document.getElementById('welcomeView').style.display = viewName === 'welcome' ? 'block' : 'none';
-            document.getElementById('catalogView').style.display = viewName === 'catalog' ? 'block' : 'none';
+            const welcomeView = document.getElementById('welcomeView');
+            const catalogView = document.getElementById('catalogView');
+            const controlPanel = document.getElementById('controlPanel');
+
+            if (viewName === 'welcome') {
+                welcomeView.style.display = 'block';
+                catalogView.style.display = 'none';
+                controlPanel.style.display = 'none';
+            } else if (viewName === 'filters') {
+                welcomeView.style.display = 'none';
+                catalogView.style.display = 'none';
+                controlPanel.style.display = 'block';
+            } else if (viewName === 'catalog') {
+                welcomeView.style.display = 'none';
+                catalogView.style.display = 'block';
+                controlPanel.style.display = 'block';
+            }
+        }
+
+        async function loadInitialStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+
+                const rent = data.Rent || { count: 0, min_price: 0, max_price: 0 };
+                const sale = data.Sales || { count: 0, min_price: 0, max_price: 0 };
+
+                document.getElementById('welcome-rent-count').innerText = rent.count || 0;
+                document.getElementById('welcome-rent-min').innerText = Number(rent.min_price || 0).toLocaleString();
+                document.getElementById('welcome-rent-max').innerText = Number(rent.max_price || 0).toLocaleString();
+
+                document.getElementById('welcome-sale-count').innerText = sale.count || 0;
+                document.getElementById('welcome-sale-min').innerText = Number(sale.min_price || 0).toLocaleString();
+                document.getElementById('welcome-sale-max').innerText = Number(sale.max_price || 0).toLocaleString();
+            } catch (e) {
+                console.error("Ошибка загрузки начальной статистики:", e);
+            }
         }
 
         async function loadDistricts() {
@@ -407,11 +483,10 @@
                     params.append('district', currentFilters.district);
                 }
 
-                // Загружаем статистику для первого ряда каталога
                 const statsResponse = await fetch(`/api/stats?${params.toString()}`);
                 const statsData = await statsResponse.json();
                 
-                const catKey = currentFilters.category; // 'Rent' или 'Sales'
+                const catKey = currentFilters.category; 
                 const catStats = statsData[catKey] || { count: 0, min_price: 0, max_price: 0, avg_price: 0 };
                 
                 document.getElementById('statCardTitle').innerText = catKey === 'Rent' ? 'Статистика: Аренда' : 'Статистика: Продажа';
@@ -420,7 +495,6 @@
                 document.getElementById('stat-max').innerText = Number(catStats.max_price || 0).toLocaleString();
                 document.getElementById('stat-avg').innerText = Number(catStats.avg_price || 0).toLocaleString();
 
-                // Загружаем сами объекты для скроллящегося списка
                 const objResponse = await fetch(`/api/objects?${params.toString()}`);
                 loadedObjects = await objResponse.json();
 
@@ -430,6 +504,11 @@
                 console.error("Ошибка загрузки данных каталога:", e);
             }
         }
+
+        // Кнопка "Начать подбор"
+        document.getElementById('btnStartSelection').addEventListener('click', () => {
+            switchView('filters');
+        });
 
         // Обработчики кликов по кнопкам фильтров
         document.querySelectorAll('.filter-btn').forEach(btn => {
@@ -481,13 +560,14 @@
         });
 
         document.getElementById('btnBackToWelcome').addEventListener('click', () => {
-            switchView('welcome');
+            switchView('filters');
         });
 
         document.getElementById('sortSelect').addEventListener('change', () => {
             renderObjectsList();
         });
 
+        loadInitialStats();
         loadDistricts();
         switchView('welcome');
     </script>
