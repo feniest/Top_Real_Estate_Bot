@@ -385,7 +385,7 @@
             </div>
         </div>
 
-        <!-- Детальный просмотр (статический контейнер с поддержкой фото и видео) -->
+        <!-- Детальный просмотр -->
         <div class="detail-view" id="detailView">
             <!-- Просмотрщик медиа (Фото / Видео) -->
             <div style="background: #000; border-radius: 6px; overflow: hidden; margin-bottom: 3px; flex-shrink: 0; border: 0.5px solid #d1d5db;">
@@ -529,7 +529,6 @@
                     return sortOrder === 'asc' ? priceA - priceB : priceB - priceA;
                 });
             } else {
-                // Если выбрано «По умолчанию», сортируем по идентификатору/номеру объекта
                 sorted.sort((a, b) => {
                     const numA = parseInt((a.id || '').toString().replace(/\D/g, '')) || 0;
                     const numB = parseInt((b.id || '').toString().replace(/\D/g, '')) || 0;
@@ -557,20 +556,35 @@
             });
         }
 
+        // Улучшенная функция для переключения и отрисовки медиафайлов
         function updateMediaView() {
             const imgEl = document.getElementById('activeImageElement');
             const videoEl = document.getElementById('activeVideoElement');
             const counterEl = document.getElementById('mediaCounter');
 
-            // Останавливаем воспроизведение текущего видео при переключении слайдов
+            // Останавливаем воспроизведение предыдущего видео при смене слайда
             videoEl.pause();
 
             if (currentMediaItems.length > 0) {
                 const item = currentMediaItems[currentMediaIdx];
-                const mediaUrl = typeof item === 'object' ? (item.url || item.path) : item;
-                const mediaType = typeof item === 'object' ? item.type : 'photo';
+                
+                // Поддерживаем как формат массива строк, так и массив объектов {type: 'photo'|'video', url: '...'}
+                let mediaUrl = '';
+                let mediaType = 'photo';
 
-                if (mediaType === 'video' || (typeof mediaUrl === 'string' && (mediaUrl.endsWith('.mp4') || mediaUrl.endsWith('.mov')))) {
+                if (typeof item === 'object' && item !== null) {
+                    mediaUrl = item.url || item.path || '';
+                    mediaType = item.type || 'photo';
+                } else {
+                    mediaUrl = String(item);
+                    // Автоматически определяем видео по расширению файла в строке
+                    const lowerUrl = mediaUrl.toLowerCase();
+                    if (lowerUrl.endsWith('.mp4') || lowerUrl.endsWith('.mov') || lowerUrl.endsWith('.webm') || lowerUrl.includes('video')) {
+                        mediaType = 'video';
+                    }
+                }
+
+                if (mediaType === 'video') {
                     imgEl.style.display = 'none';
                     videoEl.style.display = 'block';
                     videoEl.src = mediaUrl;
@@ -584,7 +598,7 @@
             } else {
                 videoEl.style.display = 'none';
                 imgEl.style.display = 'block';
-                imgEl.src = 'https://via.placeholder.com/500x250?text=No+Media';
+                imgEl.src = 'https://via.placeholder.com/500x250/2563eb/ffffff?text=No+Media+Available';
                 counterEl.innerText = '0 из 0';
             }
         }
@@ -593,7 +607,6 @@
             const priceFormatted = Number(obj.price || 0).toLocaleString();
             const isHouse = obj.prop_type === 'Houses';
             
-            // ИСПОЛЬЗУЕМ СТРОГО ID ИЗ БАЗЫ ДАННЫХ, ИСКЛЮЧАЯ ЗАВИСИМОСТЬ ОТ ИНДЕКСА МАССИВА
             const objNum = obj.id || obj.ad_number || (index + 1);
             
             document.getElementById('detailTitle').innerText = `Информация о ${isHouse ? 'Дому' : 'Квартире'} № ${objNum}`;
@@ -615,23 +628,21 @@
                 `;
             }
 
-            // Загружаем медиа из объекта или ставим демонстрационные
-            currentMediaItems = obj.media && obj.media.length > 0 ? obj.media : [
-                { type: 'photo', url: 'https://via.placeholder.com/500x250/2563eb/ffffff?text=Photo+1' },
-                { type: 'photo', url: 'https://via.placeholder.com/500x250/10b981/ffffff?text=Photo+2' }
+            // Безопасно извлекаем галерею медиа из объекта от бэкенда (поддерживаются ключи media, photos или images)
+            currentMediaItems = obj.media || obj.photos || obj.images || [
+                'https://via.placeholder.com/500x250/2563eb/ffffff?text=Apartment+Photo+1',
+                'https://via.placeholder.com/500x250/10b981/ffffff?text=Apartment+Photo+2'
             ];
+            
             currentMediaIdx = 0;
             updateMediaView();
 
-            // Переключаем экран на детальный просмотр
             switchView('detail');
 
-            // Кнопка «Звонок риелтору»
             document.getElementById('btnCallRealtor').onclick = () => {
                 tg.showAlert(`Связь с риелтором по объекту № ${objNum}`);
             };
 
-            // Кнопка «В избранное»
             document.getElementById('btnFavorite').onclick = () => {
                 tg.showAlert(`Объект успешно добавлен в избранное! ⭐`);
             };
@@ -652,7 +663,6 @@
             }
         });
 
-        // Кнопка возврата к списку
         document.getElementById('btnBackToList').addEventListener('click', () => {
             switchView('catalog');
             renderObjectsList();
