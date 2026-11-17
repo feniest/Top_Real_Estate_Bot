@@ -537,16 +537,11 @@
         }
 
         function updateMediaView() {
-            const imgEl = document.getElementById('activeImageElement');
-            const videoEl = document.getElementById('activeVideoElement');
-            const sourceEl = document.getElementById('videoSourceElement');
+            const container = document.getElementById('mediaContainer');
             const counterEl = document.getElementById('mediaCounter');
 
-            // Всегда останавливаем видео при переключении слайда
-            if (videoEl) {
-                videoEl.pause();
-                videoEl.currentTime = 0;
-            }
+            // Очищаем контейнер перед отрисовкой нового медиафайла
+            container.innerHTML = '';
 
             if (currentMediaItems.length > 0) {
                 const item = currentMediaItems[currentMediaIdx];
@@ -562,7 +557,7 @@
 
                 const lowerUrl = mediaUrl.toLowerCase();
                 
-                // Проверяем, является ли файл видео по расширению или типу
+                // Проверка, является ли файл видео
                 const isVideo = mediaType.includes('video') || 
                                 lowerUrl.includes('.mp4') || 
                                 lowerUrl.includes('.mov') || 
@@ -573,33 +568,55 @@
                                 lowerUrl.includes('/video/');
 
                 if (isVideo) {
-                    // Скрываем картинку, показываем плеер
-                    imgEl.style.display = 'none';
-                    imgEl.src = '';
-                    
-                    videoEl.style.display = 'block';
+                    const videoEl = document.createElement('video');
+                    videoEl.controls = true;
+                    videoEl.playsInline = true;
+                    videoEl.setAttribute('webkit-playsinline', '');
+                    videoEl.preload = 'auto';
+                    videoEl.style.width = '100%';
+                    videoEl.style.height = '100%';
+                    videoEl.style.objectFit = 'contain';
+                    videoEl.style.background = '#000';
+                    videoEl.style.position = 'absolute';
+                    videoEl.style.top = '0';
+                    videoEl.style.left = '0';
+
+                    const sourceEl = document.createElement('source');
                     sourceEl.src = mediaUrl;
+                    sourceEl.type = 'video/mp4';
+
+                    videoEl.appendChild(sourceEl);
+                    container.appendChild(videoEl);
+
                     videoEl.load();
-                    videoEl.play().catch(err => console.log("Автозапуск видео:", err));
+                    videoEl.play().catch(err => console.log("Автозапуск видео заблокирован браузером:", err));
                 } else {
-                    // Обязательно останавливаем и скрываем видео, показываем картинку
-                    videoEl.pause();
-                    videoEl.style.display = 'none';
-                    sourceEl.src = '';
-                    videoEl.load();
-                    
-                    imgEl.style.display = 'block';
+                    const imgEl = document.createElement('img');
                     imgEl.src = mediaUrl;
+                    imgEl.alt = 'photo';
+                    imgEl.style.width = '100%';
+                    imgEl.style.height = '100%';
+                    imgEl.style.objectFit = 'contain';
+                    imgEl.style.position = 'absolute';
+                    imgEl.style.top = '0';
+                    imgEl.style.left = '0';
+
+                    container.appendChild(imgEl);
                 }
 
                 counterEl.innerText = `${currentMediaIdx + 1} из ${currentMediaItems.length}`;
             } else {
-                videoEl.style.display = 'none';
-                sourceEl.src = '';
-                videoEl.load();
-                
-                imgEl.style.display = 'block';
+                const imgEl = document.createElement('img');
                 imgEl.src = '';
+                imgEl.alt = 'no photo';
+                imgEl.style.width = '100%';
+                imgEl.style.height = '100%';
+                imgEl.style.objectFit = 'contain';
+                imgEl.style.position = 'absolute';
+                imgEl.style.top = '0';
+                imgEl.style.left = '0';
+
+                container.appendChild(imgEl);
                 counterEl.innerText = '0 из 0';
             }
         }
