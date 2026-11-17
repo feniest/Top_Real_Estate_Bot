@@ -393,8 +393,11 @@
                     <!-- Элемент для изображений -->
                     <img id="activeImageElement" src="" style="width: 100%; height: 100%; object-fit: contain; display: none; position: absolute; top: 0; left: 0;" alt="photo">
                     
-                    <!-- Элемент для видео с поддержкой мобильных клиентов Telegram -->
-                    <video id="activeVideoElement" controls playsinline webkit-playsinline preload="metadata" style="width: 100%; height: 100%; object-fit: contain; display: none; position: absolute; top: 0; left: 0; background: #000;"></video>
+                    <!-- Элемент для видео со вложенным тегом source для корректного запуска в Телеграме -->
+                    <video id="activeVideoElement" controls playsinline webkit-playsinline preload="auto" style="width: 100%; height: 100%; object-fit: contain; display: none; position: absolute; top: 0; left: 0; background: #000;">
+                        <source id="videoSourceElement" src="" type="video/mp4">
+                        Ваш браузер не поддерживает видео.
+                    </video>
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 2px 6px; background: rgba(0,0,0,0.6);">
                     <button id="prevMediaBtn" class="back-btn" style="padding: 3px 6px; font-size: 9px;">← Назад</button>
@@ -559,6 +562,7 @@
         function updateMediaView() {
             const imgEl = document.getElementById('activeImageElement');
             const videoEl = document.getElementById('activeVideoElement');
+            const sourceEl = document.getElementById('videoSourceElement');
             const counterEl = document.getElementById('mediaCounter');
 
             // Останавливаем и сбрасываем предыдущее видео
@@ -580,7 +584,6 @@
                 }
 
                 const lowerUrl = mediaUrl.toLowerCase();
-                
                 const isVideo = mediaType.includes('video') || 
                                 lowerUrl.includes('.mp4') || 
                                 lowerUrl.includes('.mov') || 
@@ -593,7 +596,8 @@
                 if (isVideo) {
                     imgEl.style.display = 'none';
                     videoEl.style.display = 'block';
-                    videoEl.src = mediaUrl;
+                    
+                    sourceEl.src = mediaUrl;
                     videoEl.load();
                 } else {
                     videoEl.style.display = 'none';
