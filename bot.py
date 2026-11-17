@@ -178,7 +178,7 @@ def get_filtered_objects(
             query += " AND district = %s"
             params.append(district)
 
-        query += " ORDER BY NULLIF(regexp_replace(ad_number, '\D', '', 'g'), '')::integer ASC, ad_number ASC;"
+        query += r" ORDER BY NULLIF(regexp_replace(ad_number, '\D', '', 'g'), '')::integer ASC, ad_number ASC;"
 
         cursor.execute(query, params)
         rows = cursor.fetchall()
