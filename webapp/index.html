@@ -540,7 +540,6 @@
             const container = document.getElementById('mediaContainer');
             const counterEl = document.getElementById('mediaCounter');
 
-            // Очищаем контейнер перед отрисовкой нового медиафайла
             container.innerHTML = '';
 
             if (currentMediaItems.length > 0) {
@@ -557,22 +556,20 @@
 
                 const lowerUrl = mediaUrl.toLowerCase();
                 
-                // Проверка, является ли файл видео
+                // Автоопределение или принудительный флаг
                 const isVideo = mediaType.includes('video') || 
                                 lowerUrl.includes('.mp4') || 
                                 lowerUrl.includes('.mov') || 
                                 lowerUrl.includes('.avi') || 
-                                lowerUrl.includes('.mkv') || 
                                 lowerUrl.includes('.webm') || 
-                                lowerUrl.includes('.m4v') ||
-                                lowerUrl.includes('/video/');
+                                lowerUrl.includes('/video/') ||
+                                item.forceVideo === true; // Если мы принудительно переключили
 
                 if (isVideo) {
                     const videoEl = document.createElement('video');
                     videoEl.controls = true;
                     videoEl.playsInline = true;
                     videoEl.setAttribute('webkit-playsinline', '');
-                    videoEl.preload = 'auto';
                     videoEl.style.width = '100%';
                     videoEl.style.height = '100%';
                     videoEl.style.objectFit = 'contain';
@@ -588,8 +585,15 @@
                     videoEl.appendChild(sourceEl);
                     container.appendChild(videoEl);
 
+                    // Кнопка переключения обратно на фото, если это не видео
+                    addSwitchButton(container, "ЭТО КАРТИНКА?", () => {
+                        if (typeof item === 'object') item.forceVideo = false;
+                        else currentMediaItems[currentMediaIdx] = { url: mediaUrl, forceVideo: false };
+                        updateMediaView();
+                    });
+
                     videoEl.load();
-                    videoEl.play().catch(err => console.log("Автозапуск видео заблокирован браузером:", err));
+                    videoEl.play().catch(err => console.log("Видео ждет взаимодействия:", err));
                 } else {
                     const imgEl = document.createElement('img');
                     imgEl.src = mediaUrl;
@@ -602,23 +606,42 @@
                     imgEl.style.left = '0';
 
                     container.appendChild(imgEl);
+
+                    // Кнопка переключения на видео, если файл по ссылке /api/media/... оказался видеороликом
+                    addSwitchButton(container, "ЭТО ВИДЕО?", () => {
+                        if (typeof item === 'object') item.forceVideo = true;
+                        else currentMediaItems[currentMediaIdx] = { url: mediaUrl, forceVideo: true };
+                        updateMediaView();
+                    });
                 }
 
                 counterEl.innerText = `${currentMediaIdx + 1} из ${currentMediaItems.length}`;
             } else {
-                const imgEl = document.createElement('img');
-                imgEl.src = '';
-                imgEl.alt = 'no photo';
-                imgEl.style.width = '100%';
-                imgEl.style.height = '100%';
-                imgEl.style.objectFit = 'contain';
-                imgEl.style.position = 'absolute';
-                imgEl.style.top = '0';
-                imgEl.style.left = '0';
-
-                container.appendChild(imgEl);
                 counterEl.innerText = '0 из 0';
             }
+        }
+
+        // Вспомогательная функция для создания мини-кнопки переключения типа контента прямо в углу
+        function addSwitchButton(container, text, onClickCallback) {
+            const btn = document.createElement('button');
+            btn.innerText = text;
+            btn.style.position = 'absolute';
+            btn.style.top = '4px';
+            btn.style.right = '4px';
+            btn.style.zIndex = '10';
+            btn.style.background = 'rgba(0,0,0,0.7)';
+            btn.style.color = '#fff';
+            btn.style.border = '1px solid rgba(255,255,255,0.4)';
+            btn.style.borderRadius = '4px';
+            btn.style.fontSize = '8px';
+            btn.style.padding = '2px 5px';
+            btn.style.cursor = 'pointer';
+            
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                onClickCallback();
+            };
+            container.appendChild(btn);
         }
 
         function showObjectDetailView(obj, index) {
