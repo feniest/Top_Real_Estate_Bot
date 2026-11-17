@@ -544,32 +544,30 @@
 
             if (currentMediaItems.length > 0) {
                 const item = currentMediaItems[currentMediaIdx];
-                let mediaUrl = '';
-                let mediaType = '';
+                let mediaUrl = (typeof item === 'object' && item !== null) ? (item.url || item.path || item.file_url || '') : String(item);
 
-                if (typeof item === 'object' && item !== null) {
-                    mediaUrl = item.url || item.path || item.file_url || '';
-                    mediaType = (item.type || '').toLowerCase();
-                } else {
-                    mediaUrl = String(item);
-                }
+                counterEl.innerText = `${currentMediaIdx + 1} из ${currentMediaItems.length}`;
 
-                const lowerUrl = mediaUrl.toLowerCase();
-                
-                // Автоопределение или принудительный флаг
-                const isVideo = mediaType.includes('video') || 
-                                lowerUrl.includes('.mp4') || 
-                                lowerUrl.includes('.mov') || 
-                                lowerUrl.includes('.avi') || 
-                                lowerUrl.includes('.webm') || 
-                                lowerUrl.includes('/video/') ||
-                                item.forceVideo === true; // Если мы принудительно переключили
+                // Сначала пробуем отобразить как картинку
+                const imgEl = document.createElement('img');
+                imgEl.src = mediaUrl;
+                imgEl.alt = 'media';
+                imgEl.style.width = '100%';
+                imgEl.style.height = '100%';
+                imgEl.style.objectFit = 'contain';
+                imgEl.style.position = 'absolute';
+                imgEl.style.top = '0';
+                imgEl.style.left = '0';
 
-                if (isVideo) {
+                // Если картинка не загрузилась (потому что это видео), заменяем её на плеер
+                imgEl.onerror = () => {
+                    container.innerHTML = ''; // Убираем битую картинку
+
                     const videoEl = document.createElement('video');
                     videoEl.controls = true;
                     videoEl.playsInline = true;
                     videoEl.setAttribute('webkit-playsinline', '');
+                    videoEl.preload = 'auto';
                     videoEl.style.width = '100%';
                     videoEl.style.height = '100%';
                     videoEl.style.objectFit = 'contain';
@@ -585,63 +583,14 @@
                     videoEl.appendChild(sourceEl);
                     container.appendChild(videoEl);
 
-                    // Кнопка переключения обратно на фото, если это не видео
-                    addSwitchButton(container, "ЭТО КАРТИНКА?", () => {
-                        if (typeof item === 'object') item.forceVideo = false;
-                        else currentMediaItems[currentMediaIdx] = { url: mediaUrl, forceVideo: false };
-                        updateMediaView();
-                    });
-
                     videoEl.load();
-                    videoEl.play().catch(err => console.log("Видео ждет взаимодействия:", err));
-                } else {
-                    const imgEl = document.createElement('img');
-                    imgEl.src = mediaUrl;
-                    imgEl.alt = 'photo';
-                    imgEl.style.width = '100%';
-                    imgEl.style.height = '100%';
-                    imgEl.style.objectFit = 'contain';
-                    imgEl.style.position = 'absolute';
-                    imgEl.style.top = '0';
-                    imgEl.style.left = '0';
+                    videoEl.play().catch(err => console.log("Автозапуск заблокирован:", err));
+                };
 
-                    container.appendChild(imgEl);
-
-                    // Кнопка переключения на видео, если файл по ссылке /api/media/... оказался видеороликом
-                    addSwitchButton(container, "ЭТО ВИДЕО?", () => {
-                        if (typeof item === 'object') item.forceVideo = true;
-                        else currentMediaItems[currentMediaIdx] = { url: mediaUrl, forceVideo: true };
-                        updateMediaView();
-                    });
-                }
-
-                counterEl.innerText = `${currentMediaIdx + 1} из ${currentMediaItems.length}`;
+                container.appendChild(imgEl);
             } else {
                 counterEl.innerText = '0 из 0';
             }
-        }
-
-        // Вспомогательная функция для создания мини-кнопки переключения типа контента прямо в углу
-        function addSwitchButton(container, text, onClickCallback) {
-            const btn = document.createElement('button');
-            btn.innerText = text;
-            btn.style.position = 'absolute';
-            btn.style.top = '4px';
-            btn.style.right = '4px';
-            btn.style.zIndex = '10';
-            btn.style.background = 'rgba(0,0,0,0.7)';
-            btn.style.color = '#fff';
-            btn.style.border = '1px solid rgba(255,255,255,0.4)';
-            btn.style.borderRadius = '4px';
-            btn.style.fontSize = '8px';
-            btn.style.padding = '2px 5px';
-            btn.style.cursor = 'pointer';
-            
-            btn.onclick = (e) => {
-                e.stopPropagation();
-                onClickCallback();
-            };
-            container.appendChild(btn);
         }
 
         function showObjectDetailView(obj, index) {
