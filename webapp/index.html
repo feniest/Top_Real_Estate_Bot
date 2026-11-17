@@ -439,4 +439,258 @@
                 document.getElementById('welcome-rent-max').innerText = Number(rent.max_price || 0).toLocaleString();
 
                 document.getElementById('welcome-sale-count').innerText = sale.count || 0;
-                document.getElementById('welcome-sale-min').innerText = Number(sale.min
+                document.getElementById('welcome-sale-min').innerText = Number(sale.min_price || 0).toLocaleString();
+                document.getElementById('welcome-sale-max').innerText = Number(sale.max_price || 0).toLocaleString();
+            } catch (e) {
+                console.error("Ошибка загрузки начальной статистики:", e);
+            }
+        }
+
+        async function loadDistricts() {
+            try {
+                const response = await fetch('/api/districts');
+                const districts = await response.json();
+                const select = document.getElementById('districtSelect');
+                
+                select.innerHTML = '<option value="all">Выберите район...</option>';
+                districts.forEach(d => {
+                    const opt = document.createElement('option');
+                    opt.value = d;
+                    opt.textContent = d;
+                    select.appendChild(opt);
+                });
+            } catch (e) {
+                console.error("Ошибка загрузки районов:", e);
+            }
+        }
+
+        function renderObjectsList() {
+            const container = document.getElementById('objectsListContainer');
+            container.innerHTML = '';
+
+            if (loadedObjects.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: var(--hint-color); padding: 10px; font-size: 11px;">Объекты не найдены</div>';
+                return;
+            }
+
+            const sortOrder = document.getElementById('sortSelect').value;
+            const sorted = [...loadedObjects].sort((a, b) => {
+                const priceA = Number(a.price || 0);
+                const priceB = Number(b.price || 0);
+                return sortOrder === 'asc' ? priceA - priceB : priceB - priceA;
+            });
+
+            sorted.forEach((obj, index) => {
+                const card = document.createElement('div');
+                card.className = 'object-card';
+                card.innerHTML = `
+                    <div class="object-title">${obj.title || 'Объект недвижимости'}</div>
+                    <div class="object-details">
+                        <span>Район: ${obj.district || '—'} | ${obj.rooms || '-'} комн.</span>
+                        <span>${obj.area ? obj.area + ' м²' : ''}</span>
+                    </div>
+                    <div class="object-price">${Number(obj.price || 0).toLocaleString()} ${obj.currency || 'сум'}</div>
+                `;
+
+                card.addEventListener('dblclick', () => {
+                    showObjectDetailView(obj, index, sorted.length);
+                });
+
+                container.appendChild(card);
+            });
+        }
+
+        function showObjectDetailView(obj, index, total) {
+            const demoPanel = document.getElementById('demoPanel');
+            const priceFormatted = Number(obj.price || 0).toLocaleString();
+            const isHouse = obj.prop_type === 'Houses';
+            const objNum = obj.id || index + 1;
+            const objNameFull = `${isHouse ? 'Дому' : 'Квартире'} № ${objNum}`;
+            
+            let specificLines = '';
+            if (isHouse) {
+                specificLines = `
+                    <div class="stat-row"><span class="stat-label">Участок:</span><span class="stat-value">${obj.area || '—'} сот.</span></div>
+                    <div class="stat-row"><span class="stat-label">Этажность:</span><span class="stat-value">${obj.floors_total || '—'}</span></div>
+                `;
+            } else {
+                specificLines = `
+                    <div class="stat-row"><span class="stat-label">Этаж:</span><span class="stat-value">${obj.floor || '—'} из ${obj.floors_total || '—'}</span></div>
+                    <div class="stat-row"><span class="stat-label">Площадь:</span><span class="stat-value">${obj.area ? obj.area + ' м²' : '—'}</span></div>
+                `;
+            }
+
+            const mediaItems = obj.media && obj.media.length > 0 ? obj.media : [
+                { type: 'photo', url: 'https://via.placeholder.com/500x250?text=Object+Media+1' },
+                { type: 'photo', url: 'https://via.placeholder.com/500x250?text=Object+Media+2' }
+            ];
+
+            demoPanel.innerHTML = `
+                <div class="detail-view">
+                    
+                    <!-- Возвращена исходная высота блока фоток (130px) -->
+                    <div style="background: #000; border-radius: 6px; overflow: hidden; margin-bottom: 4px; flex-shrink: 0;">
+                        <div style="width: 100%; height: 130px; display: flex; align-items: center; justify-content: center; background: #111;">
+                            <img id="activeMediaElement" src="${mediaItems[0].url || mediaItems[0]}" style="max-width: 100%; max-height: 100%; object-fit: contain;" alt="media">
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 2px 6px; background: rgba(0,0,0,0.6);">
+                            <button id="prevMediaBtn" class="back-btn" style="padding: 4px 6px; font-size: 9px;">← Назад</button>
+                            <span id="mediaCounter" style="font-size: 9px; color: #fff;">1 из ${mediaItems.length}</span>
+                            <button id="nextMediaBtn" class="back-btn" style="padding: 4px 6px; font-size: 9px;">Вперед →</button>
+                        </div>
+                    </div>
+
+                    <!-- Информационная карточка (с Ориентиром и исходными шрифтами) -->
+                    <div class="stat-card" style="margin-bottom: 4px; flex-shrink: 0;">
+                        <h3 style="margin-bottom: 3px;">Информация о ${objNameFull}</h3>
+                        <div class="stat-row"><span class="stat-label">Район:</span><span class="stat-value">${obj.district || '—'}</span></div>
+                        <div class="stat-row"><span class="stat-label">Ориентир:</span><span class="stat-value">${obj.landmark || obj.orientir || '—'}</span></div>
+                        <div class="stat-row"><span class="stat-label">Комнатность:</span><span class="stat-value">${obj.rooms || '—'}</span></div>
+                        ${specificLines}
+                        <div class="stat-row" style="margin-top: 2px; border-top: 1px solid #e5e7eb; padding-top: 2px;">
+                            <span class="stat-label">Цена:</span>
+                            <span class="stat-value" style="color: var(--accent-color); font-size: 11px;">${priceFormatted} ${obj.currency || 'сум'}</span>
+                        </div>
+                    </div>
+
+                    <!-- Блок кнопок управления -->
+                    <div style="flex-shrink: 0;">
+                        <button class="start-selection-btn" id="btnFavorite" style="background: #f59e0b; padding: 8px; font-size: 11px; margin-bottom: 3px;">⭐ В избранное</button>
+                        <button class="start-selection-btn" id="btnCallRealtor" style="background: #10b981; padding: 8px; font-size: 11px; margin-bottom: 3px;">📞 Звонок риелтору</button>
+                        <button class="start-selection-btn" id="btnBackToList" style="background: var(--btn-bg); color: var(--text-color); border: 1px solid #d1d5db; padding: 8px; font-size: 11px;">← К списку</button>
+                    </div>
+                </div>
+            `;
+
+            let currentMediaIdx = 0;
+            function updateMediaView() {
+                const activeEl = document.getElementById('activeMediaElement');
+                const counterEl = document.getElementById('mediaCounter');
+                const item = mediaItems[currentMediaIdx];
+                
+                activeEl.src = item.url || item;
+                counterEl.innerText = `${currentMediaIdx + 1} из ${mediaItems.length}`;
+            }
+
+            document.getElementById('prevMediaBtn').addEventListener('click', () => {
+                currentMediaIdx = (currentMediaIdx - 1 + mediaItems.length) % mediaItems.length;
+                updateMediaView();
+            });
+
+            document.getElementById('nextMediaBtn').addEventListener('click', () => {
+                currentMediaIdx = (currentMediaIdx + 1) % mediaItems.length;
+                updateMediaView();
+            });
+
+            document.getElementById('btnFavorite').addEventListener('click', () => {
+                tg.showAlert(`Объект успешно добавлен в избранное! ⭐`);
+            });
+
+            document.getElementById('btnBackToList').addEventListener('click', () => {
+                switchView('catalog');
+                fetchAndShowCatalog();
+            });
+
+            document.getElementById('btnCallRealtor').addEventListener('click', () => {
+                tg.showAlert(`Связь с риелтором по объекту № ${objNum}`);
+            });
+        }
+
+        async function fetchAndShowCatalog() {
+            try {
+                const params = new URLSearchParams();
+                if (currentFilters.category) params.append('category', currentFilters.category);
+                if (currentFilters.prop_type) params.append('prop_type', currentFilters.prop_type);
+                if (currentFilters.rooms) params.append('rooms', currentFilters.rooms);
+                if (currentFilters.district && currentFilters.district !== 'all') {
+                    params.append('district', currentFilters.district);
+                }
+
+                const statsResponse = await fetch(`/api/stats?${params.toString()}`);
+                const statsData = await statsResponse.json();
+                
+                const catKey = currentFilters.category; 
+                const catStats = statsData[catKey] || { count: 0, min_price: 0, max_price: 0, avg_price: 0 };
+                
+                document.getElementById('statCardTitle').innerText = catKey === 'Rent' ? 'Статистика: Аренда' : 'Статистика: Продажа';
+                document.getElementById('stat-count').innerText = catStats.count || 0;
+                document.getElementById('stat-min').innerText = Number(catStats.min_price || 0).toLocaleString();
+                document.getElementById('stat-max').innerText = Number(catStats.max_price || 0).toLocaleString();
+                document.getElementById('stat-avg').innerText = Number(catStats.avg_price || 0).toLocaleString();
+
+                const objResponse = await fetch(`/api/objects?${params.toString()}`);
+                loadedObjects = await objResponse.json();
+
+                switchView('catalog');
+                renderObjectsList();
+            } catch (e) {
+                console.error("Ошибка загрузки данных каталога:", e);
+            }
+        }
+
+        document.getElementById('btnStartSelection').addEventListener('click', () => {
+            switchView('filters');
+        });
+
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (btn.id === 'btnAllDistricts' || btn.id === 'btnShow') return;
+
+                const group = btn.getAttribute('data-group');
+                const value = btn.getAttribute('data-value');
+
+                const isAlreadyActive = btn.classList.contains('active');
+                document.querySelectorAll(`[data-group="${group}"]`).forEach(b => b.classList.remove('active'));
+
+                if (isAlreadyActive) {
+                    currentFilters[group] = null;
+                } else {
+                    btn.classList.add('active');
+                    currentFilters[group] = value;
+                }
+
+                updateShowButtonState();
+            });
+        });
+
+        document.getElementById('btnAllDistricts').addEventListener('click', () => {
+            document.getElementById('btnAllDistricts').classList.add('active');
+            document.getElementById('districtSelect').value = 'all';
+            currentFilters.district = 'all';
+            updateShowButtonState();
+        });
+
+        document.getElementById('districtSelect').addEventListener('change', (e) => {
+            const val = e.target.value;
+            const btnAll = document.getElementById('btnAllDistricts');
+
+            if (val && val !== 'all') {
+                currentFilters.district = val;
+                btnAll.classList.remove('active');
+            } else {
+                currentFilters.district = 'all';
+                btnAll.classList.add('active');
+            }
+            updateShowButtonState();
+        });
+
+        document.getElementById('btnShow').addEventListener('click', () => {
+            if (currentFilters.category && currentFilters.rooms) {
+                fetchAndShowCatalog();
+            }
+        });
+
+        document.getElementById('btnBackToWelcome').addEventListener('click', () => {
+            switchView('welcome');
+        });
+
+        document.getElementById('sortSelect').addEventListener('change', () => {
+            renderObjectsList();
+        });
+
+        loadInitialStats();
+        loadDistricts();
+        switchView('welcome');
+    </script>
+</body>
+</html>
