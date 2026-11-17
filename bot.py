@@ -9,7 +9,7 @@ from aiogram.types import Message, WebAppInfo, InlineKeyboardMarkup, InlineKeybo
 from aiogram.filters import CommandStart
 
 # Импортируем ваши функции работы с базой данных
-from database_2 import get_districts, get_market_statistics
+from database import get_districts, get_market_statistics
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
