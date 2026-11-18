@@ -20,8 +20,8 @@ BOT_TOKEN = os.getenv("BOT_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN") or os.gete
 WEBAPP_URL = os.getenv("WEBAPP_URL", "https://toprealestatebot.fadehost.app")
 
 # Константы для связи с риелтором
-REALTOR_TELEGRAM_ID = 123456789  # <--- Замените на реальный Telegram ID риелтора
-REALTOR_PHONE = "+998901234567"
+REALTOR_TELEGRAM_ID = 71141690  # <--- Замените на реальный Telegram ID риелтора
+REALTOR_PHONE = "+998881090123"
 REALTOR_TG_USERNAME = "realtor_username"
 
 if not BOT_TOKEN:
