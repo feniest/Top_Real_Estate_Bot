@@ -283,28 +283,33 @@ def api_get_objects(
 
 @app.get("/api/media/{ad_number}/{index}")
 def api_get_media_file(ad_number: str, index: int):
-    """Эндпоинт для отдачи картинок и видео в веб-приложение"""
-    media_rows = get_ad_media(ad_number)
-    if not media_rows or index >= len(media_rows):
-        return Response(status_code=404)
-    
-    row = media_rows[index]
-    file_bytes = bytes(row['file_data'])
-    file_name = (row['file_name'] or "").lower()
-    
-    # Полный список видео-расширений
-    video_extensions = ('.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v', '.3gp')
-    
-    if file_name.endswith(video_extensions):
-        content_type = "video/mp4"  # Браузеры отлично воспроизводят любые видео по этому типу
-    elif file_name.endswith('.png'):
-        content_type = "image/png"
-    elif file_name.endswith('.webp'):
-        content_type = "image/webp"
-    else:
-        content_type = "image/jpeg"
-        
-    return Response(content=file_bytes, media_type=content_type)
+  """Эндпоинт для отдачи картинок и видео в веб-приложение"""
+  media_rows = get_ad_media(ad_number)
+  if not media_rows or index >= len(media_rows):
+    return Response(status_code=404)
+
+  row = media_rows[index]
+  file_bytes = bytes(row["file_data"])
+  file_name = (row["file_name"] or "").lower()
+
+  # Полный список видео-расширений
+  video_extensions = (".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v", ".3gp")
+
+  if file_name.endswith(video_extensions):
+    content_type = "video/mp4"
+  elif file_name.endswith(".png"):
+    content_type = "image/png"
+  elif file_name.endswith(".webp"):
+    content_type = "image/webp"
+  else:
+    content_type = "image/jpeg"
+
+  # 🟢 Добавляем заголовок кэширования на 1 день (86400 секунд)
+  return Response(
+      content=file_bytes,
+      media_type=content_type,
+      headers={"Cache-Control": "public, max-age=86400"},
+  )
 
 @app.get("/", response_class=HTMLResponse)
 def serve_webapp(request: Request):
