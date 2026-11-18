@@ -662,7 +662,11 @@
             switchView('detail');
 
             document.getElementById('btnCallRealtor').onclick = () => {
-                tg.showAlert(`Связь с риелтором по объекту № ${objNum}`);
+                // Укажите здесь реальный номер телефона риелтора (в международном формате, например: +998901234567)
+                const realtorPhone = "+998881090123"; 
+                
+                // Протокол tel: открывает стандартную звонилку телефона с предзаполненным номером
+                window.location.href = `tel:${realtorPhone}`;
             };
 
             document.getElementById('btnFavorite').onclick = () => {
