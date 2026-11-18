@@ -10,6 +10,7 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto, InputMediaVideo, BufferedInputFile
 from aiogram.filters import CommandStart, Command
 from pydantic import BaseModel
+import json
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -281,6 +282,58 @@ class RealtorLead(BaseModel):
 
 
 # --- Эндпоинты FastAPI ---
+
+class CallAttemptData(BaseModel):
+    initDataUnsafe: dict | None = None
+    user_id: int | None = None
+    username: str | None = None
+    user_first_name: str | None = None
+    ad_number: str
+    object_title: str
+    object_price: float | int | None = None
+    currency: str = "сум"
+    category: str | None = None
+
+@app.post("/api/realtor-call-attempt")
+async def api_realtor_call_attempt(data: CallAttemptData):
+    """Фиксирует попытку звонка с десктопа и отправляет карточку объекта и контакты риелтору"""
+    try:
+        if not bot:
+            return {"status": "error", "message": "Bot is not initialized"}
+
+        # Извлекаем Telegram ID и контактные данные звонившего
+        user_id = data.user_id
+        username = f"@{data.username}" if data.username > '' else "Не указан"
+        first_name = data.user_first_name or "Клиент"
+        
+        # Форматируем ссылку на профиль пользователя, если есть ID
+        user_mention = f"[{first_name}](tg://user?id={user_id})" if user_id else first_name
+
+        price_str = f"{data.object_price:,.0f}" if data.object_price else "Не указана"
+
+        message_text = (
+            "📞 **Пропущен звонок / Попытка связи с десктопа!**\n\n"
+            f"👤 **Клиент:** {user_mention}\n"
+            f"🆔 **Telegram ID:** `{user_id}`\n"
+            f"💬 **Username:** {username}\n\n"
+            f"🏢 **Объект:** № {data.ad_number}\n"
+            f"📌 **Название:** {data.object_title}\n"
+            f"💰 **Цена:** {price_str} {data.currency}\n\n"
+            "⚠️ *Если вы не смогли ответить на звонок, свяжитесь с клиентом.*"
+        )
+
+        # Отправляем сообщение риелтору в Telegram
+        await bot.send_message(
+            chat_id=REALTOR_TELEGRAM_ID,
+            text=message_text,
+            parse_mode="Markdown"
+        )
+        
+        logger.info(f"📞 Зафиксирован звонок с десктопа по объекту № {data.ad_number} от пользователя ID: {user_id}")
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"⚠️ Ошибка обработки звонка риелтору: {e}")
+        return {"status": "error", "message": str(e)}
 
 @app.get("/api/districts")
 def api_get_districts():

@@ -690,14 +690,45 @@
 
             switchView('detail');
 
-            // Обработка кнопки "Звонок риелтору" — открытие модального окна заявки
-            document.getElementById('btnCallRealtor').onclick = () => {
+            // Обработка кнопки "Звонок риелтору"
+            document.getElementById('btnCallRealtor').onclick = async () => {
                 if (!currentSelectedObject) return;
-                document.getElementById('modalObjTitle').innerText = `Объект № ${currentSelectedObject.ad_number}`;
-                document.getElementById('modalObjPrice').innerText = `${Number(currentSelectedObject.price || 0).toLocaleString()} ${currentSelectedObject.currency || 'сум'}`;
-                document.getElementById('clientName').value = '';
-                document.getElementById('clientPhone').value = '';
-                document.getElementById('realtorModal').style.display = 'flex';
+
+                const platform = tg.platform || ''; // определяем платформу (tdesktop, web, ios, android)
+                
+                // Формируем данные для отправки на сервер
+                const callData = {
+                    initDataUnsafe: tg.initDataUnsafe,
+                    user_id: tg.initDataUnsafe?.user?.id || null,
+                    username: tg.initDataUnsafe?.user?.username || null,
+                    user_first_name: tg.initDataUnsafe?.user?.first_name || "Не указано",
+                    ad_number: currentSelectedObject.ad_number,
+                    object_title: currentSelectedObject.title,
+                    object_price: currentSelectedObject.price,
+                    currency: currentSelectedObject.currency || 'сум',
+                    category: currentSelectedObject.category || currentFilters.category
+                };
+
+                if (platform === 'tdesktop' || platform === 'web') {
+                    // --- ДЕСКТОПНАЯ ВЕРСИЯ ---
+                    // 1. Уведомляем сервер, что был совершен звонок с десктопа (сервер шлет карточку риелтору)
+                    try {
+                        await fetch('/api/realtor-call-attempt', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(callData)
+                        });
+                    } catch (e) {
+                        console.error("Ошибка логирования звонка:", e);
+                    }
+
+                    // 2. Открываем интерфейс звонка Telegram с риелтором
+                    tg.openTelegramLink(`https://t.me/${REALTOR_TG_USERNAME}`);
+                } else {
+                    // --- МОБИЛЬНАЯ ВЕРСИЯ ---
+                    // Открываем стандартную звонилку смартфона
+                    window.location.href = `tel:${REALTOR_PHONE}`;
+                }
             };
 
             document.getElementById('btnFavorite').onclick = () => {
