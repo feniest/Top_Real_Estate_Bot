@@ -20,10 +20,9 @@ logger = logging.getLogger(__name__)
 BOT_TOKEN = os.getenv("BOT_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("TOKEN")
 WEBAPP_URL = os.getenv("WEBAPP_URL", "https://toprealestatebot.fadehost.app")
 
-# Константы для связи с риелтором
-REALTOR_TELEGRAM_ID = 71141690  # <--- Замените на реальный Telegram ID риелтора
-REALTOR_PHONE = "+998881090123"
-REALTOR_TG_USERNAME = "realtor_username"
+# Константы для связи с риелтором (берутся из переменных окружения)
+REALTOR_TELEGRAM_ID = int(os.getenv("REALTOR_TELEGRAM_ID", "71141690"))
+REALTOR_PHONE = os.getenv("REALTOR_PHONE", "+998881090123")
 
 if not BOT_TOKEN:
     logger.error("❌ Не найден токен бота в переменных окружения!")

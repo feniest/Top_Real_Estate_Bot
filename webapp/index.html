@@ -451,7 +451,8 @@
         }
 
         const REALTOR_PHONE = "+998881090123";
-        const REALTOR_TG_USERNAME = "realtor_username"; // Юзернейм риелтора без @
+        // Используем числовой Telegram ID вместо username, чтобы десктоп открывал чат/звонок без ошибок
+        const REALTOR_TELEGRAM_ID = "71141690";
 
         let currentFilters = {
             category: null,
@@ -724,14 +725,11 @@
 
                 if (platform === 'tdesktop' || platform === 'web') {
                     if (tg && typeof tg.openTelegramLink === 'function') {
-                        tg.openTelegramLink(`https://t.me/${REALTOR_TG_USERNAME}`);
+                        // Открываем интерфейс Telegram строго по числовому ID пользователя
+                        tg.openTelegramLink(`https://t.me/user?id=${REALTOR_TELEGRAM_ID}`);
                     } else {
-                        window.open(`https://t.me/${REALTOR_TG_USERNAME}`, '_blank');
+                        window.open(`https://t.me/user?id=${REALTOR_TELEGRAM_ID}`, '_blank');
                     }
-                } else if (platform === 'browser') {
-                    alert(`Запрос отправлен риелтору! Вы также можете позвонить напрямую: ${REALTOR_PHONE}`);
-                } else {
-                    window.location.href = `tel:${REALTOR_PHONE}`;
                 }
             };
 
@@ -782,9 +780,9 @@
 
                     const platform = tg && tg.platform ? tg.platform : 'browser';
                     if (platform === 'tdesktop' || platform === 'web') {
-                        if (tg && tg.openTelegramLink) tg.openTelegramLink(`https://t.me/${REALTOR_TG_USERNAME}`);
-                    } else if (platform !== 'browser') {
-                        window.location.href = `tel:${REALTOR_PHONE}`;
+                        if (tg && tg.openTelegramLink) {
+                            tg.openTelegramLink(`https://t.me/user?id=${REALTOR_TELEGRAM_ID}`);
+                        }
                     }
                 } else {
                     const errMsg = "❌ Ошибка отправки заявки. Попробуйте позже.";
