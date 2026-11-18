@@ -39,6 +39,22 @@ def get_connection():
         port=os.getenv("DB_PORT", "5432")
     )
 
+def create_indexes():
+    """Автоматически создает индексы для ускорения фильтрации в PostgreSQL при старте"""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_ads_active_category ON ads (is_active, category);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_ads_active_prop_type ON ads (is_active, property_type);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_ads_active_district ON ads (is_active, district);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_ads_rooms_num ON ads ((NULLIF(rooms, '')::integer));")
+        conn.commit()
+        cursor.close()
+        conn.close()
+        logger.info("⚡ Индексы базы данных успешно проверены/созданы — фильтрация будет работать быстро.")
+    except Exception as e:
+        logger.error(f"⚠️ Ошибка при создании индексов базы данных: {e}")
+
 def get_object_by_number(ad_number: str):
     """Получает полную информацию об объекте по его номеру"""
     try:
@@ -224,7 +240,6 @@ def get_filtered_objects(
             if r.get("landmark"):
                 title_text += f" — {r.get('landmark')}"
                 
-            # 🟢 Генерируем ссылки для веб-приложения на основе таблицы ad_media
             media_rows = get_ad_media(ad_num)
             media_urls = [f"/api/media/{ad_num}/{i}" for i in range(len(media_rows))] if media_rows else []
 
@@ -239,7 +254,7 @@ def get_filtered_objects(
                 "floors_total": r.get("floors_total"),
                 "price": r.get("price"),
                 "currency": "у.е.",
-                "media": media_urls  # 👈 Добавлено поле с URL картинок для веб-приложения
+                "media": media_urls
             })
         return results
     except Exception as e:
@@ -283,33 +298,31 @@ def api_get_objects(
 
 @app.get("/api/media/{ad_number}/{index}")
 def api_get_media_file(ad_number: str, index: int):
-  """Эндпоинт для отдачи картинок и видео в веб-приложение"""
-  media_rows = get_ad_media(ad_number)
-  if not media_rows or index >= len(media_rows):
-    return Response(status_code=404)
-
-  row = media_rows[index]
-  file_bytes = bytes(row["file_data"])
-  file_name = (row["file_name"] or "").lower()
-
-  # Полный список видео-расширений
-  video_extensions = (".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v", ".3gp")
-
-  if file_name.endswith(video_extensions):
-    content_type = "video/mp4"
-  elif file_name.endswith(".png"):
-    content_type = "image/png"
-  elif file_name.endswith(".webp"):
-    content_type = "image/webp"
-  else:
-    content_type = "image/jpeg"
-
-  # 🟢 Добавляем заголовок кэширования на 1 день (86400 секунд)
-  return Response(
-      content=file_bytes,
-      media_type=content_type,
-      headers={"Cache-Control": "public, max-age=86400"},
-  )
+    """Эндпоинт для отдачи картинок и видео в веб-приложение"""
+    media_rows = get_ad_media(ad_number)
+    if not media_rows or index >= len(media_rows):
+        return Response(status_code=404)
+    
+    row = media_rows[index]
+    file_bytes = bytes(row['file_data'])
+    file_name = (row['file_name'] or "").lower()
+    
+    video_extensions = ('.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v', '.3gp')
+    
+    if file_name.endswith(video_extensions):
+        content_type = "video/mp4"
+    elif file_name.endswith('.png'):
+        content_type = "image/png"
+    elif file_name.endswith('.webp'):
+        content_type = "image/webp"
+    else:
+        content_type = "image/jpeg"
+        
+    return Response(
+        content=file_bytes, 
+        media_type=content_type,
+        headers={"Cache-Control": "public, max-age=86400"}
+    )
 
 @app.get("/", response_class=HTMLResponse)
 def serve_webapp(request: Request):
@@ -344,7 +357,6 @@ async def cmd_start(message: Message):
 
 @dp.message(Command("object"))
 async def cmd_get_object(message: Message):
-    """Команда для запроса объекта по номеру в чат бота (работает как и раньше)"""
     args = message.text.split(maxsplit=1)
     if len(args) < 2:
         await message.answer("⚠️ Пожалуйста, укажите номер объекта. Пример: `/object 1`", parse_mode="Markdown")
@@ -357,7 +369,6 @@ async def cmd_get_object(message: Message):
         await message.answer(f"❌ Объект с номером **{ad_number}** не найден в базе данных.", parse_mode="Markdown")
         return
 
-    # Формируем текст описания карточки
     prop_type_label = "Квартира" if obj_data.get("property_type") == "Apartments" else "Дом / участок"
     description = (
         f"🏢 **Объект № {obj_data.get('ad_number')}**\n"
@@ -371,7 +382,6 @@ async def cmd_get_object(message: Message):
         f"💰 Цена: **{obj_data.get('price')} у.е.**"
     )
 
-    # Получаем медиафайлы из таблицы ad_media
     media_rows = get_ad_media(ad_number)
 
     if media_rows:
@@ -406,7 +416,7 @@ async def cmd_get_object(message: Message):
             except Exception as e:
                 logger.error(f"Ошибка отправки медиа-группы в Telegram: {e}")
 
-    await message.answer(description, parse_mode="Markdown")
+    await message.answer(description, parse_Mode="Markdown")
 
 
 # --- Запуск ---
@@ -421,6 +431,9 @@ async def main():
     if not bot:
         logger.error("❌ Запуск отменен: отсутствует токен бота.")
         return
+        
+    # 🟢 Автоматически создаем индексы при старте приложения
+    create_indexes()
         
     logger.info("🚀 Запуск веб-сервера и Telegram-бота...")
     fastapi_task = asyncio.create_task(run_fastapi())
