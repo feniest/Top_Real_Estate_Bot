@@ -9,6 +9,7 @@ import uvicorn
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto, InputMediaVideo, BufferedInputFile
 from aiogram.filters import CommandStart, Command
+from pydantic import BaseModel
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -17,6 +18,11 @@ logger = logging.getLogger(__name__)
 # Получение токена и URL из переменных окружения
 BOT_TOKEN = os.getenv("BOT_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("TOKEN")
 WEBAPP_URL = os.getenv("WEBAPP_URL", "https://toprealestatebot.fadehost.app")
+
+# Константы для связи с риелтором
+REALTOR_TELEGRAM_ID = 123456789  # <--- Замените на реальный Telegram ID риелтора
+REALTOR_PHONE = "+998901234567"
+REALTOR_TG_USERNAME = "realtor_username"
 
 if not BOT_TOKEN:
     logger.error("❌ Не найден токен бота в переменных окружения!")
@@ -244,6 +250,7 @@ def get_filtered_objects(
             media_urls = [f"/api/media/{ad_num}/{i}" for i in range(len(media_rows))] if media_rows else []
 
             results.append({
+                "id": ad_num, # Добавлено поле id для корректной сортировки на фронтенде
                 "ad_number": ad_num,
                 "title": title_text,
                 "district": r.get("district"),
@@ -260,6 +267,17 @@ def get_filtered_objects(
     except Exception as e:
         logger.error(f"⚠️ Ошибка в get_filtered_objects: {e}")
         return []
+
+
+# --- Модели данных Pydantic ---
+
+class RealtorLead(BaseModel):
+    user_name: str
+    user_phone: str
+    ad_number: str
+    object_title: str
+    object_price: float | int | None = None
+    category: str | None = None
 
 
 # --- Эндпоинты FastAPI ---
@@ -295,6 +313,36 @@ def api_get_objects(
         rooms=rooms,
         district=district
     )
+
+@app.post("/api/realtor-lead")
+async def api_realtor_lead(lead: RealtorLead):
+    """Принимает заявку из веб-приложения и отправляет сообщение риелтору в Telegram"""
+    try:
+        if not bot:
+            return {"status": "error", "message": "Bot is not initialized"}
+
+        price_str = f"{lead.object_price:,.0f}" if lead.object_price else "Не указана"
+        
+        message_text = (
+            "🔔 **Новая заявка по объекту!**\n\n"
+            f"🏢 **Объект:** № {lead.ad_number}\n"
+            f"📌 **Название:** {lead.object_title}\n"
+            f"💰 **Цена:** {price_str} у.е.\n\n"
+            f"👤 **Имя клиента:** {lead.user_name}\n"
+            f"📞 **Телефон:** `{lead.user_phone}`"
+        )
+
+        await bot.send_message(
+            chat_id=REALTOR_TELEGRAM_ID,
+            text=message_text,
+            parse_mode="Markdown"
+        )
+        
+        logger.info(f"✅ Заявка по объекту № {lead.ad_number} от клиента {lead.user_name} успешно отправлена риелтору.")
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"⚠️ Ошибка отправки лида риелтору: {e}")
+        return {"status": "error", "message": str(e)}
 
 @app.get("/api/media/{ad_number}/{index}")
 def api_get_media_file(ad_number: str, index: int):
@@ -416,7 +464,7 @@ async def cmd_get_object(message: Message):
             except Exception as e:
                 logger.error(f"Ошибка отправки медиа-группы в Telegram: {e}")
 
-    await message.answer(description, parse_Mode="Markdown")
+    await message.answer(description, parse_mode="Markdown")
 
 
 # --- Запуск ---
@@ -432,7 +480,6 @@ async def main():
         logger.error("❌ Запуск отменен: отсутствует токен бота.")
         return
         
-    # 🟢 Автоматически создаем индексы при старте приложения
     create_indexes()
         
     logger.info("🚀 Запуск веб-сервера и Telegram-бота...")

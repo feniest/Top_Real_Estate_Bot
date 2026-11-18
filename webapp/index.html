@@ -164,7 +164,6 @@
             transition: background 0.2s;
         }
 
-        /* Новый класс для размещения кнопок в одну строку */
         .action-buttons-row {
             display: flex;
             gap: 6px;
@@ -300,6 +299,31 @@
 </head>
 <body>
 
+    <!-- Модальное окно формы связи с риелтором -->
+    <div id="realtorModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; padding: 10px; box-sizing: border-box;">
+        <div style="background: var(--card-bg); width: 100%; max-width: 340px; border-radius: 12px; padding: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+            <h3 style="margin-top: 0; color: var(--accent-color); font-size: 15px; text-align: center;">💬 Связь с риелтором</h3>
+            
+            <div id="modalObjCard" style="background: var(--bg-color); padding: 8px; border-radius: 6px; font-size: 11px; margin-bottom: 10px; border: 1px solid #e5e7eb;">
+                <div id="modalObjTitle" style="font-weight: 600; margin-bottom: 2px;">Объект №</div>
+                <div id="modalObjPrice" style="color: var(--accent-color); font-weight: 700;"></div>
+            </div>
+
+            <div style="margin-bottom: 8px;">
+                <label style="font-size: 11px; font-weight: 600; color: var(--hint-color);">Ваше имя:</label>
+                <input type="text" id="clientName" class="select-field" style="width: 100%; text-align: left; box-sizing: border-box; margin-top: 2px;" placeholder="Введите ваше имя...">
+            </div>
+
+            <div style="margin-bottom: 12px;">
+                <label style="font-size: 11px; font-weight: 600; color: var(--hint-color);">Номер телефона:</label>
+                <input type="tel" id="clientPhone" class="select-field" style="width: 100%; text-align: left; box-sizing: border-box; margin-top: 2px;" placeholder="+998 (__) ___-__-__">
+            </div>
+
+            <button class="start-selection-btn" id="btnSendRealtorForm" style="margin-bottom: 6px; padding: 10px; font-size: 12px;">📤 Отправить риелтору</button>
+            <button class="start-selection-btn" id="btnCloseModal" style="background: var(--btn-bg); color: var(--text-color); border: 1px solid #d1d5db; padding: 8px; font-size: 11px;">Отмена</button>
+        </div>
+    </div>
+
     <div class="control-panel" id="controlPanel">
         <div class="button-row">
             <button class="filter-btn" data-group="category" data-value="Rent">Аренда</button>
@@ -423,6 +447,9 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
+        const REALTOR_PHONE = "+998881090123";
+        const REALTOR_TG_USERNAME = "realtor_username"; // Укажите реальный юзернейм риелтора без @
+
         let currentFilters = {
             category: null,
             prop_type: null,
@@ -433,6 +460,7 @@
         let loadedObjects = [];
         let currentMediaItems = [];
         let currentMediaIdx = 0;
+        let currentSelectedObject = null; // Текущий открытый объект
 
         function updateShowButtonState() {
             const btnShow = document.getElementById('btnShow');
@@ -632,6 +660,7 @@
         }
 
         function showObjectDetailView(obj, index) {
+            currentSelectedObject = obj; // Сохраняем текущий объект для формы
             const priceFormatted = Number(obj.price || 0).toLocaleString();
             const isHouse = obj.prop_type === 'Houses';
             const objNum = obj.id || obj.ad_number || (index + 1);
@@ -661,18 +690,70 @@
 
             switchView('detail');
 
+            // Обработка кнопки "Звонок риелтору" — открытие модального окна заявки
             document.getElementById('btnCallRealtor').onclick = () => {
-                // Укажите здесь реальный номер телефона риелтора (в международном формате, например: +998901234567)
-                const realtorPhone = "+998881090123"; 
-                
-                // Протокол tel: открывает стандартную звонилку телефона с предзаполненным номером
-                window.location.href = `tel:${realtorPhone}`;
+                if (!currentSelectedObject) return;
+                document.getElementById('modalObjTitle').innerText = `Объект № ${currentSelectedObject.ad_number}`;
+                document.getElementById('modalObjPrice').innerText = `${Number(currentSelectedObject.price || 0).toLocaleString()} ${currentSelectedObject.currency || 'сум'}`;
+                document.getElementById('clientName').value = '';
+                document.getElementById('clientPhone').value = '';
+                document.getElementById('realtorModal').style.display = 'flex';
             };
 
             document.getElementById('btnFavorite').onclick = () => {
                 tg.showAlert(`Объект успешно добавлен в избранное! ⭐`);
             };
         }
+
+        // Логика модального окна
+        document.getElementById('btnCloseModal').onclick = () => {
+            document.getElementById('realtorModal').style.display = 'none';
+        };
+
+        document.getElementById('btnSendRealtorForm').onclick = async () => {
+            const name = document.getElementById('clientName').value.trim();
+            const phone = document.getElementById('clientPhone').value.trim();
+
+            if (!name || !phone) {
+                tg.showAlert("⚠️ Пожалуйста, заполните ваше имя и номер телефона!");
+                return;
+            }
+
+            const dataToSend = {
+                initDataUnsafe: tg.initDataUnsafe,
+                user_name: name,
+                user_phone: phone,
+                ad_number: currentSelectedObject.ad_number,
+                object_title: currentSelectedObject.title,
+                object_price: currentSelectedObject.price,
+                category: currentSelectedObject.category || currentFilters.category
+            };
+
+            try {
+                const response = await fetch('/api/realtor-lead', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dataToSend)
+                });
+
+                if (response.ok) {
+                    tg.showAlert("✅ Ваша заявка успешно отправлена риелтору!");
+                    document.getElementById('realtorModal').style.display = 'none';
+
+                    const platform = tg.platform || '';
+                    if (platform === 'tdesktop' || platform === 'web') {
+                        tg.openTelegramLink(`https://t.me/${REALTOR_TG_USERNAME}`);
+                    } else {
+                        window.location.href = `tel:${REALTOR_PHONE}`;
+                    }
+                } else {
+                    tg.showAlert("❌ Ошибка отправки заявки. Попробуйте позже.");
+                }
+            } catch (e) {
+                console.error("Ошибка отправки лида:", e);
+                tg.showAlert("❌ Ошибка соединения с сервером.");
+            }
+        };
 
         document.getElementById('prevMediaBtn').addEventListener('click', () => {
             if (currentMediaItems.length > 0) {
