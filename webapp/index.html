@@ -725,10 +725,10 @@
 
                 if (platform === 'tdesktop' || platform === 'web') {
                     if (tg && typeof tg.openTelegramLink === 'function') {
-                        // Открываем интерфейс Telegram строго по числовому ID пользователя
-                        tg.openTelegramLink(`https://t.me/user?id=${REALTOR_TELEGRAM_ID}`);
+                        // Используем специальный протокол tg:// для открытия по ID
+                        tg.openTelegramLink(`tg://user?id=${REALTOR_TELEGRAM_ID}`);
                     } else {
-                        window.open(`https://t.me/user?id=${REALTOR_TELEGRAM_ID}`, '_blank');
+                        window.open(`tg://user?id=${REALTOR_TELEGRAM_ID}`, '_blank');
                     }
                 }
             };
