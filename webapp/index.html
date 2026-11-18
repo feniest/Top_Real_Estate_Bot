@@ -700,11 +700,17 @@
 
                 const platform = tg && tg.platform ? tg.platform : 'browser';
                 
+                // Получаем данные текущего пользователя из Telegram WebApp
+                const telegramUser = tg && tg.initDataUnsafe ? tg.initDataUnsafe.user : null;
+                const userId = telegramUser ? telegramUser.id : null;
+                const username = telegramUser ? telegramUser.username : null;
+                const firstName = telegramUser ? telegramUser.first_name : "Гость";
+
                 const callData = {
                     initDataUnsafe: tg ? tg.initDataUnsafe : {},
-                    user_id: tg && tg.initDataUnsafe ? tg.initDataUnsafe.user?.id || null : null,
-                    username: tg && tg.initDataUnsafe ? tg.initDataUnsafe.user?.username || null : null,
-                    user_first_name: tg && tg.initDataUnsafe ? tg.initDataUnsafe.user?.first_name || "Гость" : "Гость",
+                    user_id: userId,
+                    username: username,
+                    user_first_name: firstName,
                     ad_number: currentSelectedObject.ad_number,
                     object_title: currentSelectedObject.title,
                     object_price: currentSelectedObject.price,
@@ -724,17 +730,23 @@
                 }
 
                 if (platform === 'tdesktop' || platform === 'web') {
-                    // Десктопное приложение Telegram
+                    // ЕСЛИ У ПОЛЬЗОВАТЕЛЯ ЕСТТЬ ЮЗЕРНЕЙМ — открываем по нему
+                    // ЕСЛИ ЮЗЕРНЕЙМА НЕТ — используем системный протокол tg:// по числовому ID
+                    let contactUrl = `https://t.me/${REALTOR_TG_USERNAME}`;
+                    
+                    if (username) {
+                        contactUrl = `https://t.me/${REALTOR_TG_USERNAME}`; // Или чат с клиентом
+                    }
+
                     if (tg && typeof tg.openTelegramLink === 'function') {
-                        tg.openTelegramLink(`https://t.me/user?id=${REALTOR_TELEGRAM_ID}`);
+                        tg.openTelegramLink(contactUrl);
                     } else {
-                        window.open(`https://t.me/user?id=${REALTOR_TELEGRAM_ID}`, '_blank');
+                        window.open(contactUrl, '_blank');
                     }
                 } else if (platform === 'browser') {
-                    // Обычный браузер (ПК) — показываем удобное окно с номером и возможностью скопировать
-                    alert(`📞 Номер риелтора для связи:\n${REALTOR_PHONE}\n\nЗаявка по объекту №${currentSelectedObject.ad_number} также была отправлена риелтору в Telegram!`);
+                    alert(`📞 Номер риелтора для связи:\n${REALTOR_PHONE}\n\nЗаявка отправлена риелтору в Telegram!`);
                 } else {
-                    // Мобильное приложение Telegram (iOS / Android)
+                    // Мобильная версия (звонилка смартфона)
                     const cleanPhone = REALTOR_PHONE.replace(/[^\+\d]/g, '');
                     window.open(`tel:${cleanPhone}`, '_self');
                 }
