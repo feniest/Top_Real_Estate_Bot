@@ -724,18 +724,18 @@
                 }
 
                 if (platform === 'tdesktop' || platform === 'web') {
-                    // Десктопная версия: открываем чат/профиль через Telegram ID
+                    // Десктопное приложение Telegram
                     if (tg && typeof tg.openTelegramLink === 'function') {
                         tg.openTelegramLink(`https://t.me/user?id=${REALTOR_TELEGRAM_ID}`);
                     } else {
                         window.open(`https://t.me/user?id=${REALTOR_TELEGRAM_ID}`, '_blank');
                     }
+                } else if (platform === 'browser') {
+                    // Обычный браузер (ПК) — показываем удобное окно с номером и возможностью скопировать
+                    alert(`📞 Номер риелтора для связи:\n${REALTOR_PHONE}\n\nЗаявка по объекту №${currentSelectedObject.ad_number} также была отправлена риелтору в Telegram!`);
                 } else {
-                    // Мобильная версия (iOS / Android): запускаем системную звонилку
-                    // Убедитесь, что REALTOR_PHONE содержит чистый формат, например: "+998881090123"
+                    // Мобильное приложение Telegram (iOS / Android)
                     const cleanPhone = REALTOR_PHONE.replace(/[^\+\d]/g, '');
-                    
-                    // Используем window.open с протоколом tel:, чтобы WebView точно передал вызов ОС
                     window.open(`tel:${cleanPhone}`, '_self');
                 }
             };
