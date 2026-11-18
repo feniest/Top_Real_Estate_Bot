@@ -1396,7 +1396,6 @@ class MainWindow(QMainWindow):
             rooms_list = ["1-room", "2-room", "3-room", "4-room", "5-room"]
             categories = [("Rent", "Apartments"), ("Rent", "Houses"), ("Sales", "Apartments"), ("Sales", "Houses")]
             
-            # Безопасный запрос с корректной сортировкой числовых/текстовых номеров объявлений
             query_str = """
                 SELECT ad_number, district, landmark, rooms, floor, floors_total, price 
                 FROM ads 

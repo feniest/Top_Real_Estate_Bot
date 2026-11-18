@@ -164,6 +164,17 @@
             transition: background 0.2s;
         }
 
+        /* Новый класс для размещения кнопок в одну строку */
+        .action-buttons-row {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+        .action-buttons-row .start-selection-btn {
+            flex: 1;
+            margin-bottom: 0 !important;
+        }
+
         .stats-view {
             display: flex;
             gap: 6px;
@@ -398,8 +409,10 @@
             </div>
 
             <div style="flex-shrink: 0;">
-                <button class="start-selection-btn" id="btnFavorite" style="background: #f59e0b; padding: 6px; font-size: 11px; margin-bottom: 2px;">⭐ В избранное</button>
-                <button class="start-selection-btn" id="btnCallRealtor" style="background: #10b981; padding: 6px; font-size: 11px; margin-bottom: 2px;">📞 Звонок риелтору</button>
+                <div class="action-buttons-row">
+                    <button class="start-selection-btn" id="btnFavorite" style="background: #f59e0b; padding: 6px; font-size: 11px;">⭐ В избранное</button>
+                    <button class="start-selection-btn" id="btnCallRealtor" style="background: #10b981; padding: 6px; font-size: 11px;">📞 Звонок риелтору</button>
+                </div>
                 <button class="start-selection-btn" id="btnBackToList" style="background: var(--btn-bg); color: var(--text-color); border: 0.5px solid #d1d5db; padding: 6px; font-size: 11px;">← К списку</button>
             </div>
         </div>
@@ -600,7 +613,7 @@
                     imgEl.src = mediaUrl;
                     imgEl.alt = 'photo';
                     imgEl.style.width = '100%';
-                    imgEl.style.height = '100%'; // Исправлена опечатка (было height:)
+                    imgEl.style.height = '100%';
                     imgEl.style.objectFit = 'contain';
                     imgEl.style.position = 'absolute';
                     imgEl.style.top = '0';
