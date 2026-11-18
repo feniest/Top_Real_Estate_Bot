@@ -444,11 +444,14 @@
     </div>
 
     <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
+        // Безопасная инициализация Telegram WebApp с поддержкой обычного браузера
+        const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+        if (tg) {
+            tg.expand();
+        }
 
         const REALTOR_PHONE = "+998881090123";
-        const REALTOR_TG_USERNAME = "realtor_username"; // Укажите реальный юзернейм риелтора без @
+        const REALTOR_TG_USERNAME = "realtor_username"; // Юзернейм риелтора без @
 
         let currentFilters = {
             category: null,
@@ -460,7 +463,7 @@
         let loadedObjects = [];
         let currentMediaItems = [];
         let currentMediaIdx = 0;
-        let currentSelectedObject = null; // Текущий открытый объект
+        let currentSelectedObject = null;
 
         function updateShowButtonState() {
             const btnShow = document.getElementById('btnShow');
@@ -660,7 +663,7 @@
         }
 
         function showObjectDetailView(obj, index) {
-            currentSelectedObject = obj; // Сохраняем текущий объект для формы
+            currentSelectedObject = obj;
             const priceFormatted = Number(obj.price || 0).toLocaleString();
             const isHouse = obj.prop_type === 'Houses';
             const objNum = obj.id || obj.ad_number || (index + 1);
@@ -690,18 +693,17 @@
 
             switchView('detail');
 
-            // Обработка кнопки "Звонок риелтору"
+            // Обработка кнопки "Звонок риелтору" с защитой от запуска вне Telegram
             document.getElementById('btnCallRealtor').onclick = async () => {
                 if (!currentSelectedObject) return;
 
-                const platform = tg.platform || ''; // определяем платформу (tdesktop, web, ios, android)
+                const platform = tg && tg.platform ? tg.platform : 'browser';
                 
-                // Формируем данные для отправки на сервер
                 const callData = {
-                    initDataUnsafe: tg.initDataUnsafe,
-                    user_id: tg.initDataUnsafe?.user?.id || null,
-                    username: tg.initDataUnsafe?.user?.username || null,
-                    user_first_name: tg.initDataUnsafe?.user?.first_name || "Не указано",
+                    initDataUnsafe: tg ? tg.initDataUnsafe : {},
+                    user_id: tg && tg.initDataUnsafe ? tg.initDataUnsafe.user?.id || null : null,
+                    username: tg && tg.initDataUnsafe ? tg.initDataUnsafe.user?.username || null : null,
+                    user_first_name: tg && tg.initDataUnsafe ? tg.initDataUnsafe.user?.first_name || "Гость" : "Гость",
                     ad_number: currentSelectedObject.ad_number,
                     object_title: currentSelectedObject.title,
                     object_price: currentSelectedObject.price,
@@ -709,34 +711,39 @@
                     category: currentSelectedObject.category || currentFilters.category
                 };
 
-                if (platform === 'tdesktop' || platform === 'web') {
-                    // --- ДЕСКТОПНАЯ ВЕРСИЯ ---
-                    // 1. Уведомляем сервер, что был совершен звонок с десктопа (сервер шлет карточку риелтору)
-                    try {
-                        await fetch('/api/realtor-call-attempt', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(callData)
-                        });
-                    } catch (e) {
-                        console.error("Ошибка логирования звонка:", e);
-                    }
+                // Отправляем уведомление на бэкенд в любом случае (фиксация запроса)
+                try {
+                    await fetch('/api/realtor-call-attempt', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(callData)
+                    });
+                } catch (e) {
+                    console.error("Ошибка логирования звонка:", e);
+                }
 
-                    // 2. Открываем интерфейс звонка Telegram с риелтором
-                    tg.openTelegramLink(`https://t.me/${REALTOR_TG_USERNAME}`);
+                if (platform === 'tdesktop' || platform === 'web') {
+                    if (tg && typeof tg.openTelegramLink === 'function') {
+                        tg.openTelegramLink(`https://t.me/${REALTOR_TG_USERNAME}`);
+                    } else {
+                        window.open(`https://t.me/${REALTOR_TG_USERNAME}`, '_blank');
+                    }
+                } else if (platform === 'browser') {
+                    alert(`Запрос отправлен риелтору! Вы также можете позвонить напрямую: ${REALTOR_PHONE}`);
                 } else {
-                    // --- МОБИЛЬНАЯ ВЕРСИЯ ---
-                    // Открываем стандартную звонилку смартфона
                     window.location.href = `tel:${REALTOR_PHONE}`;
                 }
             };
 
             document.getElementById('btnFavorite').onclick = () => {
-                tg.showAlert(`Объект успешно добавлен в избранное! ⭐`);
+                if (tg && typeof tg.showAlert === 'function') {
+                    tg.showAlert(`Объект успешно добавлен в избранное! ⭐`);
+                } else {
+                    alert(`Объект успешно добавлен в избранное! ⭐`);
+                }
             };
         }
 
-        // Логика модального окна
         document.getElementById('btnCloseModal').onclick = () => {
             document.getElementById('realtorModal').style.display = 'none';
         };
@@ -746,12 +753,13 @@
             const phone = document.getElementById('clientPhone').value.trim();
 
             if (!name || !phone) {
-                tg.showAlert("⚠️ Пожалуйста, заполните ваше имя и номер телефона!");
+                const msg = "⚠️ Пожалуйста, заполните ваше имя и номер телефона!";
+                if (tg && tg.showAlert) tg.showAlert(msg); else alert(msg);
                 return;
             }
 
             const dataToSend = {
-                initDataUnsafe: tg.initDataUnsafe,
+                initDataUnsafe: tg ? tg.initDataUnsafe : {},
                 user_name: name,
                 user_phone: phone,
                 ad_number: currentSelectedObject.ad_number,
@@ -768,21 +776,22 @@
                 });
 
                 if (response.ok) {
-                    tg.showAlert("✅ Ваша заявка успешно отправлена риелтору!");
+                    const msg = "✅ Ваша заявка успешно отправлена риелтору!";
+                    if (tg && tg.showAlert) tg.showAlert(msg); else alert(msg);
                     document.getElementById('realtorModal').style.display = 'none';
 
-                    const platform = tg.platform || '';
+                    const platform = tg && tg.platform ? tg.platform : 'browser';
                     if (platform === 'tdesktop' || platform === 'web') {
-                        tg.openTelegramLink(`https://t.me/${REALTOR_TG_USERNAME}`);
-                    } else {
+                        if (tg && tg.openTelegramLink) tg.openTelegramLink(`https://t.me/${REALTOR_TG_USERNAME}`);
+                    } else if (platform !== 'browser') {
                         window.location.href = `tel:${REALTOR_PHONE}`;
                     }
                 } else {
-                    tg.showAlert("❌ Ошибка отправки заявки. Попробуйте позже.");
+                    const errMsg = "❌ Ошибка отправки заявки. Попробуйте позже.";
+                    if (tg && tg.showAlert) tg.showAlert(errMsg); else alert(errMsg);
                 }
             } catch (e) {
                 console.error("Ошибка отправки лида:", e);
-                tg.showAlert("❌ Ошибка соединения с сервером.");
             }
         };
 
@@ -821,7 +830,7 @@
                 const catKey = currentFilters.category; 
                 const catStats = statsData[catKey] || { count: 0, min_price: 0, max_price: 0, avg_price: 0 };
                 
-                document.getElementById('statCardTitle').innerText = catKey === 'Rent' ? 'Статистика: Аренда' : 'Статистика: Продажа';
+                document.getElementById('statCardTitle').innerText = catKey === 'Rent' ? 'Статистика: Аренда' : 'Статистиka: Продажа';
                 document.getElementById('stat-count').innerText = catStats.count || 0;
                 document.getElementById('stat-min').innerText = Number(catStats.min_price || 0).toLocaleString();
                 document.getElementById('stat-max').innerText = Number(catStats.max_price || 0).toLocaleString();
